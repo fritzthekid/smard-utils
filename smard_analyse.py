@@ -22,6 +22,40 @@ class Analyse(BatterySimulation):
         self.costs_per_kwh = None
         self.battery_results = None
 
+    # def prepare_price(self):
+    #     if self.year == None:
+    #         self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
+    #     else:
+    #         path = f"{os.path.abspath(os.path.dirname(__file__))}/costs"
+    #         costs = pd.read_csv(f"{path}/{self.year}-hour-price.csv")
+    #         costs["price"] /= 100
+    #         total_average = costs["price"].mean()
+    #         apl = []
+    #         for i, p in enumerate(costs["price"]):
+    #             if i < 12 or i > len(costs["price"])-12:
+    #                 apl.append(total_average)
+    #             else:
+    #                 apl.append(costs["price"][i-12:i+12].mean())
+    #         costs["avrgprice"] = apl
+    #         costs["dtime"] = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S") for t in costs["time"]]
+    #         costs = costs.set_index("dtime")
+    #         if self.data.index[0].year != self.year:
+    #             raise Exception("Year mismatch")
+    #         pl = []
+    #         lstl = []
+    #         i = costs.index[0]
+    #         for t in self.data.index:
+    #             seconds = (t-i).seconds
+    #             # hours = int(seconds/3600)
+    #             if seconds >= 3600 and (i+pd.Timedelta(hours=1)).year == self.year:
+    #                 i += pd.Timedelta(hours=1)
+    #             price = costs["price"].iloc[int((i-costs.index[0]).total_seconds()/3600)]
+    #             pl.append(price)
+    #             lstl.append(costs["avrgprice"].iloc[int((i-costs.index[0]).total_seconds()/3600)])
+    #         self.data["price_per_kwh"] = pl
+    #         self.data["avrgprice"] = lstl
+    #     pass
+
     def prepare_price(self):
         if self.year == None:
             self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
@@ -30,31 +64,33 @@ class Analyse(BatterySimulation):
             costs = pd.read_csv(f"{path}/{self.year}-hour-price.csv")
             costs["price"] /= 100
             total_average = costs["price"].mean()
-            apl = []
-            for i, p in enumerate(costs["price"]):
-                if i < 12 or i > len(costs["price"])-12:
-                    apl.append(total_average)
-                else:
-                    apl.append(costs["price"][i-12:i+12].mean())
-            costs["avrgprice"] = apl
-            costs["dtime"] = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S") for t in costs["time"]]
+            
+            # ✓ OPTIMIERT: Verwende pandas rolling() statt Schleife
+            window_size = 25  # 12 vor + 12 nach + aktueller Wert
+            costs["avrgprice"] = costs["price"].rolling(
+                window=window_size, 
+                center=True, 
+                min_periods=1
+            ).mean()
+            
+            # Fülle Randwerte mit total_average
+            costs["avrgprice"].fillna(total_average, inplace=True)
+            
+            costs["dtime"] = pd.to_datetime(costs["time"])
             costs = costs.set_index("dtime")
+            
             if self.data.index[0].year != self.year:
                 raise Exception("Year mismatch")
-            pl = []
-            lstl = []
-            i = costs.index[0]
-            for t in self.data.index:
-                seconds = (t-i).seconds
-                # hours = int(seconds/3600)
-                if seconds >= 3600 and (i+pd.Timedelta(hours=1)).year == self.year:
-                    i += pd.Timedelta(hours=1)
-                price = costs["price"].iloc[int((i-costs.index[0]).total_seconds()/3600)]
-                pl.append(price)
-                lstl.append(costs["avrgprice"].iloc[int((i-costs.index[0]).total_seconds()/3600)])
-            self.data["price_per_kwh"] = pl
-            self.data["avrgprice"] = lstl
-        pass
+            
+            # ✓ OPTIMIERT: Verwende vectorized Operations
+            # Berechne die Stunden-Differenz einmal
+            start_time = costs.index[0]
+            hours_diff = ((self.data.index - start_time).total_seconds() / 3600).astype(int)
+            hours_diff = np.clip(hours_diff, 0, len(costs)-1)
+            
+            # Nutze iloc mit Array-Indexing (viel schneller!)
+            self.data["price_per_kwh"] = costs["price"].iloc[hours_diff].values
+            self.data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values
 
     def prepare_data(self):
         if "battery_discharge" in self.basic_data_set:

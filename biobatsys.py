@@ -81,43 +81,38 @@ class BioBatSys(Analyse):
         return df
 
     def pre_simulation_addons(self):
-        self.exporting = [] 
-        self.count = int(0)
-        self.i_vals = []
+        self.exporting = np.full(self.data.shape[0], False, dtype=bool) 
+        # self.count = int(0)
+        # self.i_vals = []
+        self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
+        self.prices = self.data["price_per_kwh"].values
+        self.meanprice = self.data["price_per_kwh"].mean()
 
     def post_simulation_addons(self):
         if not hasattr(self, "exporting_l"):
             self.exporting_l = []
-        self.exporting_l.append((sum(1 for e in self.exporting if e), sum(1 for e in self.exporting if not e)))
+        self.exporting_l.append((np.size(self.exporting) - np.count_nonzero(self.exporting),self.exporting.sum()))
 
-           
-    def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
-        # Ladevorgang
-        inflow = 0.0
-        outflow = 0.0
-        residual = 0.0
-        exflow = 0.0
-        self.count = int(self.count + 1)
+    def loading_strategie(self, renew, demand, current_storage, capacity, 
+                        avrgprice, price, power_per_step, **kwargs):
+        """Optimierte Version"""
         i = int(kwargs["i"])
-        self.i_vals.append(i)
-        charge_condition = self.data["charge_condition"].iloc[i]
-        charge_condition=self.data["oel"].iloc[i]>self.data["solar"].iloc[i]
-        energy_balance = renew - demand
-        meanprice = self.data["price_per_kwh"].mean()
+        
+        # Statt .iloc[i] - direkt auf vorbereitete Arrays zugreifen
+        
+        # Initialisierung
+        inflow = outflow = residual = exflow = 0.0
 
         if price < avrgprice:
-            max_charge = min(power_per_step, capacity - current_storage)   # power_per_step ~ kW / 1h => kWh
+            max_charge = min(power_per_step, capacity - current_storage)
             actual_charge = min(renew, max_charge)
             if actual_charge > 0:
                 inflow = actual_charge
                 current_storage += actual_charge
-            # if inflow < renew:
-            #     exflow = renew - inflow
-            self.exporting.append(False)
+            self.exporting[i]= False
 
-        # Entladevorgang
-        elif price > 0.3 * avrgprice:
-            self.exporting.append(True)
+        elif price > 1.2 * np.abs(avrgprice):
+            self.exporting[i] = True
             actual_discharge = min(power_per_step, current_storage)
             if actual_discharge > 0:
                 outflow = actual_discharge
@@ -125,12 +120,13 @@ class BioBatSys(Analyse):
                 exflow = outflow + renew
             else:
                 exflow = renew
-        elif price > 0.1 * meanprice:
-            self.exporting.append(True)
+                
+        elif price > 0.9 * np.abs(self.meanprice):
+            self.exporting[i] = True
             exflow = renew
         else:
-            self.exporting.append(False)
-
+            self.exporting[i] = False
+        
         return [current_storage, inflow, outflow, residual, exflow]
 
     def print_battery_results(self):
@@ -149,7 +145,7 @@ class BioBatSys(Analyse):
             cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [€]", "rev [€]", "rev €/kWh", "revadd [€]"]
         # [f"{(e0*self.resolution,e1*self.resolution)}" for (e0,e1) in self.exporting_l[1:]]
         assert len(set(d for d in self.exporting_l[1:])) == 1, f"not all deviables == {self.exporting_l[1]}"
-        print(f"exporting {self.exporting_l[2][0]*self.resolution} hours but not {self.exporting_l[1][1]*self.resolution} hours")
+        print(f"exporting {self.exporting_l[1][1]*self.resolution} hours but not {self.exporting_l[1][0]*self.resolution} hours")
         capacity_l = ["no rule"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
         residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"][1:]]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]

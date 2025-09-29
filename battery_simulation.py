@@ -61,6 +61,10 @@ class BatterySimulation:
           self.costs_per_kwh (€/kWh)
         Ergebnis: füllt self.data mit battery_storage/residual/exflow und aktualisiert self.battery_results
         """
+        if not hasattr(self, "sim_count"):
+            self.sim_count = 0
+        else:
+            self.sim_count +=1
         # Checks
         if not hasattr(self, 'data'):
             raise ValueError("self.data existiert nicht")
@@ -99,7 +103,7 @@ class BatterySimulation:
             residual = 0.0
             exflow = 0.0
 
-            [current_storage, inflow, outflow, residual, exflow] = self.loading_strategie(renew[i], demand[i], current_storage, capacity, avrgprice[i], price[i], power_per_step, i=i)
+            [current_storage, inflow, outflow, residual, exflow] = self.loading_strategie(renew[i], demand[i], current_storage, capacity, avrgprice[i], price[i], power_per_step, sim_count=self.sim_count, i=i)
 
             if bd > 0:
                 current_storage = max(0.0, current_storage * (1.0 - bd))
