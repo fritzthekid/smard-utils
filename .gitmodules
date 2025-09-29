@@ -1,0 +1,3 @@
+[submodule "PyPSA"]
+	path = PyPSA
+	url = git@github.com:PyPSA/PyPSA.git
