@@ -82,6 +82,8 @@ class BioBatSys(Analyse):
 
     def pre_simulation_addons(self):
         self.exporting = [] 
+        self.count = int(0)
+        self.i_vals = []
 
     def post_simulation_addons(self):
         if not hasattr(self, "exporting_l"):
@@ -95,12 +97,6 @@ class BioBatSys(Analyse):
         outflow = 0.0
         residual = 0.0
         exflow = 0.0
-        if not hasattr(self, "exporting"):
-            self.exporting = []
-        if not hasattr(self, "count"):
-            self.count = int(0)
-        if not hasattr(self, "i_vals"):
-            self.i_vals = []
         self.count = int(self.count + 1)
         i = int(kwargs["i"])
         self.i_vals.append(i)
