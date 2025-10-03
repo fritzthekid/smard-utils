@@ -16,11 +16,98 @@ DEBUG = False
         
 class Analyse(BatterySimulation):
 
-    def __init__(self, data=None, basic_data_set={}):
+    def __init__(self, data=None, basic_data_set={}, **kwargs):
         self.data = data
         self.basic_data_set = basic_data_set
         self.costs_per_kwh = None
-        self.battery_results = None
+        if "battery_results_pattern" in kwargs:
+            self.battery_results_pattern = kwargs["battery_results_pattern"]
+        else:
+            self.battery_results_pattern = None
+        super().__init__(basic_data_set)
+        pass
+
+    def load_and_prepare_data(self, csv_file_path, **kwargs):
+        """Load and prepare SMARD data"""
+        print("Loading SMARD data for European grid analysis...")
+        
+        if "basic_data_set" in kwargs:
+            self.basic_data_set = kwargs["basic_data_set"]
+        df = pd.read_csv(csv_file_path, sep=';', decimal=',')
+        
+        # Create datetime column
+        df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'])
+        df = df.set_index('DateTime')
+        
+        # Remove non-energy columns
+        energy_cols = [col for col in df.columns if '[MWh]' in col]
+        df = df[energy_cols]
+        
+        # Rename columns for easier handling
+        column_mapping = {}
+        for col in df.columns:
+            if 'Wind Onshore' in col:
+                column_mapping[col] = 'wind_onshore'
+            elif 'Wind Offshore' in col:
+                column_mapping[col] = 'wind_offshore'
+            elif 'Photovoltaik' in col:
+                column_mapping[col] = 'solar'
+            elif 'Wasserkraft' in col:
+                column_mapping[col] = 'hydro'
+            elif 'Biomasse' in col:
+                column_mapping[col] = 'biomass'
+            elif 'Erdgas [MWh]' in col:
+                column_mapping[col] = 'oel'
+            elif 'Gesamtverbrauch' in col or 'Netzlast' in col:
+                column_mapping[col] = 'total_demand'
+            # Keep other columns with original names for now
+
+        df = df.rename(columns=column_mapping)
+
+        self.resolution = ((df.index[1]-df.index[0]).seconds)/3600
+
+        total_demand = df["total_demand"].sum()*self.resolution
+        my_total_demand = self.basic_data_set["year_demand"]
+        self.my_total_demand = my_total_demand
+
+        """
+        Betrachtung Deutschland
+
+        - 130 GW installierte PV
+        - 63 GW installierte Windanlagen
+        - 50 GW sonstige
+
+        Betrachtung Luxemburg 2022
+        - 317 MWp installierte PV
+        - 208 MW installierte Leistung, 280 GWh eingespeiste Energie Wind
+
+        """
+
+        if self.region == "_de":
+            total_installed_solar = 130e3 # MWp
+            total_installed_wind = 63e3 # MW norm
+        else:
+            total_installed_solar = 326 # MWp
+            total_installed_wind = 208 # MW norm
+
+        ### this an extimate (for the time being seems better ...)
+        total_installed_solar = max(df["solar"]) # MWp
+        total_installed_wind = max(df["wind_onshore"])
+        df["my_demand"] = df["total_demand"] * my_total_demand / total_demand * self.resolution
+        df["my_renew"] = df["wind_onshore"] * self.basic_data_set["wind_nominal_power"] / total_installed_wind * self.resolution
+        df["my_renew"] += df["solar"] * self.basic_data_set["solar_max_power"] / total_installed_solar * self.resolution
+
+        # print(my_total_demand, sum(df["my_demand"]), sum(pos)+sum(neg))
+        df = df.fillna(0)
+        
+        print(f"✓ Loaded {len(df)} {(df.index[1]-df.index[0]).seconds/60} minutes records")
+        print(f"Date range: {df.index.min()} to {df.index.max()}")
+
+        if DEBUG:
+            plt.plot(df["my_renew"])
+            plt.plot(df["my_demand"])
+            plt.show()
+        return df
 
     # def prepare_price(self):
     #     if self.year == None:
@@ -74,7 +161,7 @@ class Analyse(BatterySimulation):
             ).mean()
             
             # Fülle Randwerte mit total_average
-            costs["avrgprice"].fillna(total_average, inplace=True)
+            costs.fillna({"":total_average}, inplace=True)
             
             costs["dtime"] = pd.to_datetime(costs["time"])
             costs = costs.set_index("dtime")
@@ -89,8 +176,8 @@ class Analyse(BatterySimulation):
             hours_diff = np.clip(hours_diff, 0, len(costs)-1)
             
             # Nutze iloc mit Array-Indexing (viel schneller!)
-            self.data["price_per_kwh"] = costs["price"].iloc[hours_diff].values
-            self.data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values
+            self.data["price_per_kwh"] = costs["price"].iloc[hours_diff].values - self.basic_data_set["marketing_costs"]
+            self.data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values - self.basic_data_set["marketing_costs"]
 
     def prepare_data(self):
         if "battery_discharge" in self.basic_data_set:
@@ -119,9 +206,14 @@ class Analyse(BatterySimulation):
 
         savings_no = "NN"
         savings = f"0.00 €/MWh"
-        self.battery_results = pd.DataFrame([[-1,self.data["my_demand"].sum(),0,0,spot_price_no,fix_price_no, 0],
-                                            [0,sum(self.neg),sum(self.exflow),share,spot_price,fix_price, revenue]], 
-                                            columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [€]", "fix price [€]", "revenue [€]"])
+        if self.battery_results_pattern is not None:
+            no_ren = [-1,0,0,0,0,0,0]
+            no_bat = [-1,0.0,(self.data["my_renew"].sum()),0.0,0.0,0.0,(self.data["my_renew"]*self.data["price_per_kwh"]).sum()]
+        else:
+            no_ren = [-1,self.data["my_demand"].sum(),0,0,spot_price_no,fix_price_no, 0]
+            no_bat = [0,sum(self.neg),sum(self.exflow),share,spot_price,fix_price, revenue]
+        self.battery_results = pd.DataFrame([no_ren, no_bat],
+                                        columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [€]", "fix price [€]", "revenue [€]"])
         # print(f"wqithout renewables fix_price: {(sum(self.data["my_demand"])*self.costs_per_kwh/100000):.2f} T€, " +
         #       f"spot_price: {((sum(self.data["my_demand"]*self.data["price_per_kwh"])/100000)):.2f} T€")
 
@@ -132,10 +224,15 @@ class Analyse(BatterySimulation):
         """Run the analysis"""
         if self.data is None:
             print("❌ No data loaded!")
-            return
+            return        
 
         logger.info("Starting analysis...")
 
+        if len(capacity_list) != len(power_list):
+            raise Exception("capacity_list and power_list must have the same length")
+        if min(capacity_list) > 0.0:
+            capacity_list = [0.0] + capacity_list
+            power_list = [0.0] + power_list
         self.year = self.basic_data_set["year"]
         self.costs_per_kwh = self.basic_data_set["fix_costs_per_kwh"]/100
         self.prepare_price()
@@ -235,83 +332,6 @@ class MeineAnalyse(Analyse):
         data = self.load_and_prepare_data(csv_file_path)
         super().__init__(data, basic_data_set)
 
-    def load_and_prepare_data(self, csv_file_path):
-        """Load and prepare SMARD data"""
-        print("Loading SMARD data for European grid analysis...")
-        
-        df = pd.read_csv(csv_file_path, sep=';', decimal=',')
-        
-        # Create datetime column
-        df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'])
-        df = df.set_index('DateTime')
-        
-        # Remove non-energy columns
-        energy_cols = [col for col in df.columns if '[MWh]' in col]
-        df = df[energy_cols]
-        
-        # Rename columns for easier handling
-        column_mapping = {}
-        for col in df.columns:
-            if 'Wind Onshore' in col:
-                column_mapping[col] = 'wind_onshore'
-            elif 'Wind Offshore' in col:
-                column_mapping[col] = 'wind_offshore'
-            elif 'Photovoltaik' in col:
-                column_mapping[col] = 'solar'
-            elif 'Wasserkraft' in col:
-                column_mapping[col] = 'hydro'
-            elif 'Biomasse' in col:
-                column_mapping[col] = 'biomass'
-            elif 'Gesamtverbrauch' in col or 'Netzlast' in col:
-                column_mapping[col] = 'total_demand'
-            # Keep other columns with original names for now
-
-        df = df.rename(columns=column_mapping)
-
-        self.resolution = ((df.index[1]-df.index[0]).seconds)/3600
-
-        total_demand = df["total_demand"].sum()*self.resolution
-        my_total_demand = self.basic_data_set["year_demand"]
-        self.my_total_demand = my_total_demand
-
-        """
-        Betrachtung Deutschland
-
-        - 130 GW installierte PV
-        - 63 GW installierte Windanlagen
-        - 50 GW sonstige
-
-        Betrachtung Luxemburg 2022
-        - 317 MWp installierte PV
-        - 208 MW installierte Leistung, 280 GWh eingespeiste Energie Wind
-
-        """
-
-        if self.region == "_de":
-            total_installed_solar = 130e3
-            total_installed_wind = 63e3
-        else:
-            total_installed_solar = 326
-            total_installed_wind = 208
-
-        ### this an extimate (for the time being seems better ...)
-        total_installed_solar = max(df["solar"])
-        total_installed_wind = max(df["wind_onshore"])
-        df["my_demand"] = df["total_demand"] * my_total_demand / total_demand * self.resolution
-        df["my_renew"] = df["wind_onshore"] * self.basic_data_set["wind_nominal_power"] / total_installed_wind * self.resolution
-        df["my_renew"] += df["solar"] * self.basic_data_set["solar_max_power"] / total_installed_solar * self.resolution
-
-        # print(my_total_demand, sum(df["my_demand"]), sum(pos)+sum(neg))
-        df = df.fillna(0)
-        
-        print(f"✓ Loaded {len(df)} {(df.index[1]-df.index[0]).seconds/60} minutes records")
-        print(f"Date range: {df.index.min()} to {df.index.max()}")
-
-        if DEBUG:
-            plt.plot(df["my_renew"])
-            plt.plot(df["my_demand"])
-            plt.show()
-        return df
 
 basic_data_set = {
     "year": 2024,
@@ -320,7 +340,13 @@ basic_data_set = {
     "solar_max_power":5000,
     "wind_nominal_power":5000,
     "fix_contract" : True,
+    "marketing_costs" : 0.003,
     "battery_discharge": 0.005,
+    "efficiency_charge": 0.95,     # Ladewirkungsgrad
+    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
+    "min_soc": 0.10,               # Min 10% Ladezustand
+    "max_soc": 0.90,               # Max 90% Ladezustand
+    "max_c_rate": 1.0,               # Max 90% Ladezustand
 }
 
 def main(argv = []):
@@ -336,8 +362,8 @@ def main(argv = []):
         return
     
     analyzer = MeineAnalyse(data_file, region, basic_data_set=basic_data_set)
-    analyzer.run_analysis(capacity_list=[0,  0.1, 1.0,    5, 20, 100], 
-                          power_list=   [0, 0.05, 0.5, 0.25, 10,  50])
+    analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 20, 100], 
+                          power_list=   [0.05, 0.5, 0.25, 10,  50])
     
     # # Einzelne Simulation
 

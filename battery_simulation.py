@@ -10,8 +10,27 @@ import numpy as np
 
 class BatterySimulation:
 
-    def __init__():
-        pass
+    def __init__(self, basic_data_set = {}):
+        if "efficiency_charge" in basic_data_set:
+            self.efficiency_charge = basic_data_set["efficiency_charge"]      # Ladewirkungsgrad
+        else:
+            self.efficiency_charge = 1.0      # Ladewirkungsgrad
+        if "efficiency_discharge" in basic_data_set:
+            self.efficiency_discharge = basic_data_set["efficiency_discharge"]   # Entladewirkungsgrad
+        else:
+            self.efficiency_discharge = 1.0   # Entladewirkungsgrad
+        if "min_soc" in basic_data_set:
+            self.min_soc = basic_data_set["min_soc"]               # Min 10% Ladezustand
+        else:
+            self.min_soc = 0.0               # Min 10% Ladezustand
+        if "max_soc" in basic_data_set:
+            self.max_soc = basic_data_set["max_soc"]               # Max 90% Ladezustand
+        else:
+            self.max_soc = 1.0               # Max 90% Ladezustand
+        if "max_c_rate" in basic_data_set:
+            self.max_c_rate = basic_data_set["max_c_rate"]             # Max 1C
+        else:
+            self.max_c_rate = 1.0             # Max 1C  
 
     def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
         # Ladevorgang

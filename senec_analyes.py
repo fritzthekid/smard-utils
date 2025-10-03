@@ -112,6 +112,12 @@ basic_data_set = {
     "solar_max_power":3.7,
     "wind_nominal_power":0,
     "fix_contract" : True,
+    "battery_discharge": 0.005,
+    "efficiency_charge": 0.95,     # Ladewirkungsgrad
+    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
+    "min_soc": 0.10,               # Min 10% Ladezustand
+    "max_soc": 0.90,               # Max 90% Ladezustand
+    "max_c_rate": 1.0,               # Max 90% Ladezustand
 }
 
 def main(argv=[]):
