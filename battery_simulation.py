@@ -1,242 +1,132 @@
 #!/usr/bin/env python3
-"""
-Korrigierte Batterie-Simulation
-Behebt logische Probleme der ursprünglichen Funktion
-"""
-
 import pandas as pd
 import numpy as np
-# from meine_analyse import Analyse, MeineAnalyse
+from battery_model import battery, battery_source_model # Standard and extended model
+
+battery_simulation_version = "1.0"
 
 class BatterySimulation:
+    def __init__(self, data=None, basic_data_set=None, **kwargs):
+        self.data = data if data is not None else pd.DataFrame()
+        self.basic_data_set = basic_data_set if basic_data_set is not None else {}
+        self.costs_per_kwh = self.basic_data_set.get("fix_costs_per_kwh", 0.1)
+        self.battery_results = None
 
-    def __init__(self, basic_data_set = {}):
-        if "efficiency_charge" in basic_data_set:
-            self.efficiency_charge = basic_data_set["efficiency_charge"]      # Ladewirkungsgrad
+        # Batterie-Objekt vorbereiten
+        if "has_battery_source_model" in kwargs:
+            self.batt = battery_source_model(basic_data_set=self.basic_data_set,
+                                             capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
+                                             p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
         else:
-            self.efficiency_charge = 1.0      # Ladewirkungsgrad
-        if "efficiency_discharge" in basic_data_set:
-            self.efficiency_discharge = basic_data_set["efficiency_discharge"]   # Entladewirkungsgrad
-        else:
-            self.efficiency_discharge = 1.0   # Entladewirkungsgrad
-        if "min_soc" in basic_data_set:
-            self.min_soc = basic_data_set["min_soc"]               # Min 10% Ladezustand
-        else:
-            self.min_soc = 0.0               # Min 10% Ladezustand
-        if "max_soc" in basic_data_set:
-            self.max_soc = basic_data_set["max_soc"]               # Max 90% Ladezustand
-        else:
-            self.max_soc = 1.0               # Max 90% Ladezustand
-        if "max_c_rate" in basic_data_set:
-            self.max_c_rate = basic_data_set["max_c_rate"]             # Max 1C
-        else:
-            self.max_c_rate = 1.0             # Max 1C  
+            self.batt = battery(basic_data_set=self.basic_data_set,
+                                capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
+                                p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
 
-    def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
-        # Ladevorgang
-        inflow = 0.0
-        outflow = 0.0
-        residual = 0.0
-        exflow = 0.0
-        energy_balance = renew - demand
+    def simulate_battery(self, capacity=2000, power=1000):
+        """Simulation mit internem battery-Objekt"""
+        if not hasattr(self, "data"):
+            raise ValueError("Keine Datenquelle vorhanden")
 
-        if energy_balance > 0:
-            if not self.basic_data_set["fix_contract"] or ( price < 0 or 
-                                                           price < 0.5*avrgprice or 
-                                                           (price < avrgprice and energy_balance > 0)):
-                max_charge = min(power_per_step, capacity - current_storage)   # power_per_step ~ kW / 1h => kWh
-                actual_charge = min(energy_balance, max_charge)
-                if actual_charge > 0:
-                    inflow = actual_charge
-                    current_storage += actual_charge
-                exflow = energy_balance - actual_charge
-            else:
-                # nicht laden, alles überschüssige wird abgegeben
-                exflow = energy_balance
+        renew = np.array(self.data["my_renew"], dtype=float)
+        demand = np.array(self.data["my_demand"], dtype=float)
+        price = np.array(self.data["price_per_kwh"], dtype=float)
+        avrgprice = np.array(self.data["avrgprice"], dtype=float)
 
-        # Entladevorgang
-        elif energy_balance < 0:
-            if not self.basic_data_set["fix_contract"] or (price > 0 and 
-                                                           price > 1.5*avrgprice or 
-                                                           (price > avrgprice and energy_balance < 0)):
-                needed = abs(energy_balance)
-                max_discharge = min(power_per_step, current_storage)
-                actual_discharge = min(needed, max_discharge)
-                if actual_discharge > 0:
-                    outflow = actual_discharge
-                    current_storage -= actual_discharge
-                    residual = needed - actual_discharge
-                else:
-                    residual = needed
-            else:
-                residual = abs(energy_balance)
-        return [current_storage, inflow, outflow, residual, exflow]
-
-    def simulate_battery(self, capacity=20000, power=10000):
-        """
-        Simuliere Batterie (Kapazität in kWh, power in kW pro Stunde).
-        Erwartet:
-          self.data["my_renew"], self.data["my_demand"], self.data["price_per_kwh"], self.data["avrgprice"]
-          self.costs_per_kwh (€/kWh)
-        Ergebnis: füllt self.data mit battery_storage/residual/exflow und aktualisiert self.battery_results
-        """
-        if not hasattr(self, "sim_count"):
-            self.sim_count = 0
-        else:
-            self.sim_count +=1
-        # Checks
-        if not hasattr(self, 'data'):
-            raise ValueError("self.data existiert nicht")
-        for col in ("my_renew", "my_demand", "price_per_kwh", "avrgprice"):
-            if col not in self.data:
-                raise ValueError(f"{col} fehlt in self.data")
+        storage_levels, inflows, outflows, residuals, exflows, losses = [], [], [], [], [], []
+        current_storage = 0.5 * capacity
 
         if hasattr(self, "pre_simulation_addons"):
             self.pre_simulation_addons()
 
-        n = len(self.data["my_renew"])
-        renew = np.array(self.data["my_renew"], dtype=float)
-        demand = np.array(self.data["my_demand"], dtype=float)
-        price = np.array(self.data["price_per_kwh"], dtype=float)   # €/kWh
-        avrgprice = np.array(self.data["avrgprice"], dtype=float)   # €/kWh
-
-        storage_levels = np.zeros(n, dtype=float)
-        residuals = np.zeros(n, dtype=float)
-        exflows = np.zeros(n, dtype=float)
-        battery_inflows = np.zeros(n, dtype=float)
-        battery_outflows = np.zeros(n, dtype=float)
-
-        current_storage = capacity * 0.5  # Start 50% of capacity
-
-        power_per_step = power * self.resolution
-        # battery_discharge: fraction per hour (0..1). Default 0 (kein Verlust).
-        bd = getattr(self, "battery_discharge", 0.0)
-        bd = float(bd) if bd is not None else 0.0
-        # Begrenze auf 0..1
-        bd = max(0.0, min(1.0, bd))
-
-        for i in range(n):
-            energy_balance = renew[i] - demand[i]   # kWh (positiv = Überschuss)
-            inflow = 0.0
-            outflow = 0.0
-            residual = 0.0
-            exflow = 0.0
-
-            [current_storage, inflow, outflow, residual, exflow] = self.loading_strategie(renew[i], demand[i], current_storage, capacity, avrgprice[i], price[i], power_per_step, sim_count=self.sim_count, i=i)
-
-            if bd > 0:
-                current_storage = max(0.0, current_storage * (1.0 - bd))
-            current_storage = min(capacity, current_storage)
-
-            storage_levels[i] = current_storage
-            residuals[i] = residual
-            exflows[i] = exflow
-            battery_inflows[i] = inflow
-            battery_outflows[i] = outflow
-
-        # Ergebnisse speichern (arrays in DataFrame/Series)
-        self.data["battery_storage"] = storage_levels
-        self.data["residual"] = residuals
-        self.data["exflow"] = exflows
-        self.data["battery_inflow"] = battery_inflows
-        self.data["battery_outflow"] = battery_outflows
-
-        # Aggregationen
-        total_demand_kwh = demand.sum()
-        autarky_rate = 1.0 - (residuals.sum() / total_demand_kwh) if total_demand_kwh > 0 else 1.0
-
-        # Preise: Preisfelder sind €/kWh; resultate in Euro
-        spot_total_eur = float((residuals * price).sum())      # Euro
-        fix_total_eur = float(residuals.sum() * self.costs_per_kwh)  # Euro
-
-        # Für Ausgabe in T€ (tausend €)
-        spot_tk = spot_total_eur
-        fix_tk = fix_total_eur
-        revenue_tk = float((exflows * price).sum())
-
-        results = pd.DataFrame([[
-            capacity,
-            residuals.sum(),
-            exflows.sum(),
-            autarky_rate,
-            spot_tk,
-            fix_tk,
-            revenue_tk,
-        ]], columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [€]", "fix price [€]", "revenue [€]"])
-
-        if getattr(self, "battery_results", None) is None:
-            self.battery_results = results
-        else:
-            self.battery_results = pd.concat([self.battery_results, results], ignore_index=True)
+        for i, (r, d, p, ap) in enumerate(zip(renew, demand, price, avrgprice)):
+            new_storage, inflow, outflow, residual, exflow, loss = self.batt.loading_strategie(
+                renew=r,
+                demand=d,
+                current_storage=current_storage,
+                capacity=capacity,
+                avrgprice=ap,
+                price=p,
+                power_per_step=power,
+                dt_h=self.resolution,
+                i=i
+            )
+            current_storage = new_storage
+            storage_levels.append(current_storage)
+            inflows.append(inflow)
+            outflows.append(outflow)
+            residuals.append(residual)
+            exflows.append(exflow)
+            losses.append(loss)
+            self.logger.debug(f"{(new_storage, inflow, outflow, residual, exflow, loss)}")
 
         if hasattr(self, "post_simulation_addons"):
             self.post_simulation_addons()
 
-        return {
-            "autarky_rate": autarky_rate,
-            "spot_total_eur": spot_total_eur,
-            "fix_total_eur": fix_total_eur
-        }
+        # Ergebnisse in DataFrame schreiben
+        self.data["battery_storage"] = storage_levels
+        self.data["battery_inflow"] = inflows
+        self.data["battery_outflow"] = outflows
+        self.data["residual"] = residuals
+        self.data["exflow"] = exflows
+        self.data["loss"] = losses
 
-    # Zusätzliche Hilfsfunktionen für Validierung und Analyse
+        autarky_rate = 1.0 - (sum(residuals) / sum(demand))
+        spot_total_eur = float(np.sum(np.array(residuals) * price))
+        fix_total_eur = float(sum(residuals) * self.costs_per_kwh)
+        revenue_total = float(np.sum(np.array(exflows) * price))
 
-    def validate_battery_parameters(self,capacity, power):
-        """Validiert Batterie-Parameter"""
-        if capacity <= 0:
-            raise ValueError(f"Batteriekapazität muss positiv sein: {capacity}")
-        if power <= 0:
-            raise ValueError(f"Batterieleistung muss positiv sein: {power}")
-        if power > capacity:
-            print(f"⚠️  Warnung: Batterieleistung ({power} kW) > Kapazität ({capacity} kWh)")
-            print(f"   Das bedeutet C-Rate > 1 (sehr schnelle Batterie)")
+        result = pd.DataFrame([[
+            capacity, sum(residuals), sum(exflows), autarky_rate,
+            spot_total_eur, fix_total_eur, revenue_total, sum(losses)
+        ]],
+            columns=[
+                "capacity kWh", "residual kWh", "exflow kWh",
+                "autarky rate", "spot price [€]",
+                "fix price [€]", "revenue [€]", "loss kWh"
+            ])
+        self.battery_results = pd.concat([self.battery_results, result], ignore_index=True) if self.battery_results is not None else result
+        return result
 
-    def analyze_battery_efficiency(self, storage_levels, inflows, outflows):
-        """Analysiert Batterieeffizienz"""
-        total_inflow = sum(inflows)
-        total_outflow = sum(outflows)
-        
-        if total_inflow > 0:
-            efficiency = total_outflow / total_inflow
-            print(f"   Batterieeffizienz: {efficiency*100:.1f}% (idealisiert)")
-        
-        cycles = sum(inflows) / (max(storage_levels) - min(storage_levels)) if max(storage_levels) > min(storage_levels) else 0
-        print(f"   Äquivalente Vollzyklen: {cycles:.1f}")
-
-    # Beispiel für erweiterte Simulation mit verschiedenen Batterien
-    def run_battery_comparison(self, capacities=[10000, 20000, 50000], power_factor=0.5):
-        """Vergleicht verschiedene Batteriekapazitäten"""
-        
-        print("🔋 Batterie-Vergleichsanalyse")
-        print("="*50)
-        
-        # Lösche vorherige Ergebnisse
+    def run_battery_comparison(self, capacities=[2000], power_factor=0.5):
+        """Mehrere Batteriekapazitäten vergleichen"""
         self.battery_results = pd.DataFrame()
-        
-        for capacity in capacities:
-            power = capacity * power_factor  # Power als Anteil der Kapazität
-            print(f"\n--- Simulation: {capacity/1000:.1f} MWh / {power/1000:.1f} MW ---")
-            
-            self.validate_battery_parameters(capacity, power)
-            result = self.simulate_battery(capacity, power)
-            
-            # Effizienz-Analyse
-            if 'battery_inflow' in self.data and 'battery_outflow' in self.data:
-                self.analyze_battery_efficiency(
-                    self.data['battery_storage'], 
-                    self.data['battery_inflow'], 
-                    self.data['battery_outflow']
-                )
-        
-        print(f"\n📋 Vergleichstabelle:")
+        for cap in capacities:
+            power = cap * power_factor
+            print(f"Simulation: {cap/1000:.2f} MWh, Power: {power/1000:.2f} MW")
+            res = self.simulate_battery(capacity=cap, power=power)
+            print(res.round(2))
+        print("\nGesamtergebnisse:")
         print(self.battery_results.round(2))
-        
         return self.battery_results
 
-# Einzelne Simulation
 
-# result = simulate_battery(self, capacity=20000, power=10000)
+# === Testlauf mit einfacher Zeitreihe ===
+if __name__ == "__main__":
+    import pandas as pd, numpy as np
+    hours = pd.date_range("2025-01-01", periods=10, freq="H")
+    data = pd.DataFrame({
+        "my_renew": np.linspace(500, 1500, 10),
+        "my_demand": np.linspace(1000, 800, 10),
+        "price_per_kwh": np.linspace(0.05, 0.15, 10),
+        "avrgprice": np.full(10, 0.10)
+    }, index=hours)
 
-# # Batterie-Vergleich
-# comparison = run_battery_comparison(self, 
-#     capacities=[10000, 20000, 50000], 
-#     power_factor=0.5)
+    params = {
+        "capacity_kwh": 2000,
+        "p_max_kw": 1000,
+        "r0_ohm": 0.006,
+        "u_nom": 800.0,
+        "battery_discharge": 0.0005,
+        "efficiency_charge": 0.96,
+        "efficiency_discharge": 0.96,
+        "min_soc": 0.05,
+        "max_soc": 0.95,
+        "max_c_rate": 0.5,
+        "fix_costs_per_kwh": 0.11,
+        "fix_contract": False
+    }
+
+    # from battery_simulation import BatterySimulation
+    sim = BatterySimulation(data=data, basic_data_set=params)
+    sim.run_battery_comparison(capacities=[2000], power_factor=0.5)
+    pass
