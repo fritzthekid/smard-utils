@@ -31,7 +31,7 @@ class BioBatSys(Analyse):
         self.basic_data_set = basic_data_set
         data = self.load_and_prepare_data(csv_file_path)
         battery_results_pattern = [-1,0,1,0,0,-1]
-        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern)
+        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, has_battery_source_model=True)
 
     def load_and_prepare_data(self, csv_file_path):
         """Load and prepare SMARD data"""
@@ -199,7 +199,16 @@ basic_data_set = {
     "flex_factor": 3,               # zubau Faktor für Flexibilisirung
 }
 
-
+"""
+    "battery_discharge": 0.005,
+    "efficiency_charge":    0.98,      # Ladewirkungsgrad
+    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
+    "min_soc": 0.10,               # Min 10% Ladezustand
+    "max_soc": 0.90,               # Max 90% Ladezustand
+    "max_c_rate": 1.0,               # Max 90% Ladezustand
+    "flex_add_per_kwh": 100,        # flexibilisierungspauschale
+    "flex_factor": 3,               # zubau Faktor für Flexibilisirung
+"""
 def main(argv = []):
     """Main function"""
     if len(argv) > 1:

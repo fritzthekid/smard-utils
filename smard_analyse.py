@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 import sys
 import logging
-from battery_simulation import BatterySimulation
+from battery_simulation import BatterySimulation, battery_simulation_version
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -19,12 +19,16 @@ class Analyse(BatterySimulation):
     def __init__(self, data=None, basic_data_set={}, **kwargs):
         self.data = data
         self.basic_data_set = basic_data_set
+        self.logger = logger
         self.costs_per_kwh = None
         if "battery_results_pattern" in kwargs:
             self.battery_results_pattern = kwargs["battery_results_pattern"]
         else:
             self.battery_results_pattern = None
-        super().__init__(basic_data_set)
+        if "has_battery_source_model" in kwargs and battery_simulation_version > "0.0":
+            super().__init__(data=data,basic_data_set=basic_data_set, has_battery_source_model=kwargs["has_battery_source_model"])
+        else:
+            super().__init__(data=data,basic_data_set=basic_data_set)
         pass
 
     def load_and_prepare_data(self, csv_file_path, **kwargs):
@@ -341,13 +345,34 @@ basic_data_set = {
     "wind_nominal_power":5000,
     "fix_contract" : True,
     "marketing_costs" : 0.003,
-    "battery_discharge": 0.005,
-    "efficiency_charge": 0.95,     # Ladewirkungsgrad
-    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
-    "min_soc": 0.10,               # Min 10% Ladezustand
-    "max_soc": 0.90,               # Max 90% Ladezustand
-    "max_c_rate": 1.0,               # Max 90% Ladezustand
+    #"battery_discharge": 0.005,
+    #"efficiency_charge": 0.95,     # Ladewirkungsgrad
+    #"efficiency_discharge": 0.95,   # Entladewirkungsgrad
+    #"min_soc": 0.10,               # Min 10% Ladezustand
+    #"max_soc": 0.90,               # Max 90% Ladezustand
+    #"max_c_rate": 1.0,               # Max 90% Ladezustand
+    "battery_discharge": 0.0, #0.0005,      # Fraktion / h
+    "efficiency_charge": 1, #0.96,
+    "efficiency_discharge": 1, #0.96,
+    "min_soc": 0.0, #0.05,
+    "max_soc": 1.0, #0.95,
+    "max_c_rate": 0.5,
+    "r0_ohm": 0.0, # 0.006,                  # Innenwiderstand (Ω)
+    "u_nom": 800.0                    # Nominale Systemspannung (V)
 }
+
+"""
+defaults = {
+    "battery_discharge": 0.0005,      # Fraktion / h
+    "efficiency_charge": 0.96,
+    "efficiency_discharge": 0.96,
+    "min_soc": 0.05,
+    "max_soc": 0.95,
+    "max_c_rate": 0.5,
+    "r0_ohm": 0.006,                  # Innenwiderstand (Ω)
+    "u_nom": 800.0                    # Nominale Systemspannung (V)
+}
+"""
 
 def main(argv = []):
     """Main function"""

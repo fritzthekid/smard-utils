@@ -31,7 +31,7 @@ class SolBatSys(Analyse):
         self.basic_data_set = basic_data_set
         battery_results_pattern = [-1,0,1,0,0,-1]
         data = self.load_and_prepare_data(csv_file_path)
-        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern)
+        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, has_battery_source_model=True)
 
     def load_and_prepare_data(self, csv_file_path):
         """Load and prepare SMARD data"""

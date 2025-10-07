@@ -58,7 +58,8 @@ class battery:
                 stored_energy = (actual_charge - loss) * self.efficiency_charge
                 inflow = stored_energy
                 current_storage += stored_energy
-                exflow = energy_balance - actual_charge
+                ###  !! exflow = energy_balance - actual_charge !! always
+            exflow = energy_balance - actual_charge
         elif energy_balance < 0:
             # Entladen
             needed = abs(energy_balance)
@@ -68,7 +69,8 @@ class battery:
                 loss = self._r0_losses(actual_discharge / dt_h, dt_h)
                 outflow = (actual_discharge - loss) * self.efficiency_discharge
                 current_storage -= (actual_discharge / self.efficiency_discharge)
-                residual = needed - outflow
+                ###!!  residual = needed - outflow !! this line should be done always
+            residual = needed - outflow
 
         # Selbstentladung
         current_storage *= (1.0 - self.battery_discharge * dt_h)
