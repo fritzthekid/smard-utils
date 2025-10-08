@@ -2,19 +2,20 @@
 # bat_model_extended.py
 import math
 
-class battery:
+class BatteryModel:
     def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
                  init_storage_kwh=None, i=None, **kwargs):
         self.basic_data_set = basic_data_set.copy() if basic_data_set else {}
         defaults = {
-            "battery_discharge": 0.0005,      # Fraktion / h
-            "efficiency_charge": 0.96,
-            "efficiency_discharge": 0.96,
-            "min_soc": 0.05,
-            "max_soc": 0.95,
-            "max_c_rate": 0.5,
-            "r0_ohm": 0.006,                  # Innenwiderstand (Ω)
-            "u_nom": 800.0                    # Nominale Systemspannung (V)
+            "battery_discharge": 0.0005,      # Selbstentladung [Fraktion pro Stunde], typ. 0.01–0.001 %/h
+            "efficiency_charge": 0.96,        # Wirkungsgrad beim Laden (Energie → Speicher)
+            "efficiency_discharge": 0.96,     # Wirkungsgrad beim Entladen (Speicher → Energieabgabe)
+            "min_soc": 0.05,                  # Untere Ladegrenze [5 % vom Speicher] → verhindert Tiefentladung
+            "max_soc": 0.95,                  # Obere Ladegrenze [95 % vom Speicher] → schützt vor Überladung
+            "max_c_rate": 0.5,                # Maximale C-Rate (0.5 C = Vollladung/Entladung in 2 h)
+            "fix_contract": False,            # True = fester Strompreisvertrag, False = Spotmarktpreis aktiv
+            "r0_ohm": 0.006,                  # Interner Widerstand (Ω) → ohmsche Verluste I²·R
+            "u_nom": 800.0                    # Nominale Systemspannung [V] → typisch für 1 MW Batterie
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
@@ -44,43 +45,69 @@ class battery:
         p_loss_w = (i ** 2) * self.r0_ohm  # W
         return (p_loss_w * dt_h) / 1000.0  # in kWh
 
+    @property
+    def exporting(self):
+        return self._exporting
+
+    @exporting.setter
+    def exporting(self, value):
+        self._exporting = value
+
     def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
         dt_h = kwargs.get("dt_h", 1.0)
         inflow = outflow = residual = exflow = loss = 0.0
-        energy_balance = renew - demand
+
+        energy_balance = renew - demand   # positiv = Überschuss, negativ = Bedarf
+
+        # Default actuals
+        actual_charge = 0.0
+        actual_discharge = 0.0
 
         if energy_balance > 0:
-            # Laden
+            # Laden aus Überschuss
             allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
-            actual_charge = min(energy_balance, allowed_energy)
+            actual_charge = min(energy_balance, allowed_energy)  # kWh aus Überschuss, bevor Verluste
             if actual_charge > 0:
                 loss = self._r0_losses(actual_charge / dt_h, dt_h)
-                stored_energy = (actual_charge - loss) * self.efficiency_charge
+                stored_energy = max(0.0, (actual_charge - loss)) * self.efficiency_charge
                 inflow = stored_energy
                 current_storage += stored_energy
-                ###  !! exflow = energy_balance - actual_charge !! always
+            # exflow = überschüssige Energie, die nicht geladen wurde (immer setzen)
             exflow = energy_balance - actual_charge
-        elif energy_balance < 0:
-            # Entladen
-            needed = abs(energy_balance)
-            allowed_energy = min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
-            actual_discharge = min(needed, allowed_energy)
-            if actual_discharge > 0:
-                loss = self._r0_losses(actual_discharge / dt_h, dt_h)
-                outflow = (actual_discharge - loss) * self.efficiency_discharge
-                current_storage -= (actual_discharge / self.efficiency_discharge)
-                ###!!  residual = needed - outflow !! this line should be done always
-            residual = needed - outflow
 
-        # Selbstentladung
+        elif energy_balance < 0:
+            # Entladen zur Bedarfsdeckung (oder Verkauf wenn gewünscht)
+            needed = abs(energy_balance)
+            # Obergrenze der entnehmbaren Energie in einem Zeitschritt Δt fest — 
+            # also die maximale Energiemenge, die die Batterie in dieser Stunde
+            #  (oder Zeitschrittlänge dt_h) abgeben darf, ohne physikalische oder
+            #  betriebliche Grenzen zu verletzen.
+            allowed_energy = min(power_per_step * dt_h, max(0.0, current_storage - self.min_soc * capacity))
+            # Wähle candidate so, dass netto möglichst den Bedarf trifft (einfacher Ansatz)
+            # candidate ist Energie, die aus dem Speicher entnommen wird (kWh)
+            candidate = min(allowed_energy, needed / max(self.efficiency_discharge, 1e-9))
+            if candidate > 0:
+                loss = self._r0_losses(candidate / dt_h, dt_h)
+                # Nettolieferung an Netz / Last:
+                outflow = max(0.0, (candidate - loss) * self.efficiency_discharge)
+                actual_discharge = candidate
+                current_storage -= actual_discharge
+            # residual = ungedeckter Bedarf (immer setzen)
+            residual = needed - outflow
+            if residual > 1000:
+                pass
+
+        # Selbstentladung und clamp
         current_storage *= (1.0 - self.battery_discharge * dt_h)
         current_storage = max(self.min_soc * capacity, min(self.max_soc * capacity, current_storage))
 
+        # Rückgabe: jetzt konsistent 6 Werte (inkl. loss)
         return [current_storage, inflow, outflow, residual, exflow, loss]
 
     def step(self, renew, demand, price, avrgprice, power_per_step=None, dt_h=1.0):
         power_per_step = power_per_step or self.p_max_kw
-        new_storage, inflow, outflow, residual, exflow = self.loading_strategie(
+        # unpack 6 Werte (inkl. loss)
+        new_storage, inflow, outflow, residual, exflow, loss = self.loading_strategie(
             renew, demand, self.current_storage, self.capacity_kwh,
             avrgprice, price, power_per_step, dt_h=dt_h
         )
@@ -92,13 +119,14 @@ class battery:
             outflow_kwh=outflow,
             residual_kwh=residual,
             exflow_kwh=exflow,
+            loss_kwh=loss,
             price=price,
             avrgprice=avrgprice
         )
         self.history.append(rec)
         return rec
 
-class battery_source_model(battery):
+class BatterySourceModel(BatteryModel):
     def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
                  init_storage_kwh=None, i=None, **kwargs):
         self.basic_data_set = basic_data_set.copy() if basic_data_set else {}
@@ -119,10 +147,10 @@ class battery_source_model(battery):
         self.last_cycle = False
 
     def is_loading(self, price, avrgprice):
-        if price < avrgprice:
+        if price < self.load_threshold*avrgprice:
             self.last_cycle = self.load_threshold_hytheresis
             return True
-        elif price < avrgprice + self.last_cycle:
+        elif price < self.load_threshold*avrgprice + self.last_cycle:
             return True
         else:
             self.last_cycle = 0
@@ -130,10 +158,10 @@ class battery_source_model(battery):
     
     def is_unloading(self, price, avrgprice):
         # return price > self.load_threshold_high * avrgprice
-        if price > avrgprice:
+        if price > self.load_threshold*avrgprice:
             self.last_cycle = -self.load_threshold_hytheresis
             return True
-        elif price < avrgprice + self.last_cycle:
+        elif price < self.load_threshold*avrgprice + self.last_cycle:
             return True
         else:
             self.last_cycle = 0
@@ -141,12 +169,13 @@ class battery_source_model(battery):
 
     def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
         dt_h = kwargs.get("dt_h", 1.0)
+        i = kwargs.get("i", 0)
         inflow = outflow = residual = exflow = loss = 0.0
+        self._exporting[i] = False
 
         if self.is_loading(price, avrgprice):
-            #< self.load_threshold * avrgprice:
-            #> 0:
             # Laden
+            # see comment above
             allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
             actual_charge = min(renew, allowed_energy)
             if actual_charge > 0:
@@ -154,20 +183,28 @@ class battery_source_model(battery):
                 stored_energy = (actual_charge - loss) * self.efficiency_charge
                 inflow = stored_energy
                 current_storage += stored_energy
-                exflow = renew - actual_charge
+            exflow = max(0,renew - actual_charge)
+            if exflow > 0:
+                self._exporting[i] = True
         elif self.is_unloading(price, avrgprice):
-            # > self.load_threshold * avrgprice:
             # Entladen
+            # see comment above
             allowed_energy = min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
             actual_discharge = min(renew, allowed_energy)
             if actual_discharge > 0:
                 loss = self._r0_losses(actual_discharge / dt_h, dt_h)
                 outflow = (actual_discharge - loss) * self.efficiency_discharge
                 current_storage -= (actual_discharge / self.efficiency_discharge)
-                exflow = renew + outflow
+            exflow = max(0,renew + outflow)
+            if exflow > 0:
+                self._exporting[i] = True
+        elif price > 0.0:
+            exflow = renew
+            self._exporting[i] = True
 
         # Selbstentladung
         current_storage *= (1.0 - self.battery_discharge * dt_h)
         current_storage = max(self.min_soc * capacity, min(self.max_soc * capacity, current_storage))
 
         return [current_storage, inflow, outflow, residual, exflow, loss]
+

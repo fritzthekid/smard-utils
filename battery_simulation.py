@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
-from battery_model import battery, battery_source_model # Standard and extended model
+from battery_model import BatteryModel, BatterySourceModel # Standard and extended model
 
 battery_simulation_version = "1.0"
 
 class BatterySimulation:
-    def __init__(self, data=None, basic_data_set=None, **kwargs):
+    def __init__(self, data=None, basic_data_set=None, battery_model=BatteryModel, **kwargs):
         self.data = data if data is not None else pd.DataFrame()
         self.basic_data_set = basic_data_set if basic_data_set is not None else {}
         self.costs_per_kwh = self.basic_data_set.get("fix_costs_per_kwh", 0.1)
         self.battery_results = None
 
-        # Batterie-Objekt vorbereiten
-        if "has_battery_source_model" in kwargs:
-            self.batt = battery_source_model(basic_data_set=self.basic_data_set,
-                                             capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
-                                             p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
-        else:
-            self.batt = battery(basic_data_set=self.basic_data_set,
+        self.batt = battery_model(basic_data_set=self.basic_data_set,
                                 capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
                                 p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
 
@@ -35,8 +29,10 @@ class BatterySimulation:
         storage_levels, inflows, outflows, residuals, exflows, losses = [], [], [], [], [], []
         current_storage = 0.5 * capacity
 
-        if hasattr(self, "pre_simulation_addons"):
-            self.pre_simulation_addons()
+        self.batt.exporting = np.full(self.data.shape[0], False, dtype=bool)
+        self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
+        self.prices = self.data["price_per_kwh"].values
+        self.meanprice = self.data["price_per_kwh"].mean()
 
         for i, (r, d, p, ap) in enumerate(zip(renew, demand, price, avrgprice)):
             new_storage, inflow, outflow, residual, exflow, loss = self.batt.loading_strategie(
@@ -59,8 +55,9 @@ class BatterySimulation:
             losses.append(loss)
             self.logger.debug(f"{(new_storage, inflow, outflow, residual, exflow, loss)}")
 
-        if hasattr(self, "post_simulation_addons"):
-            self.post_simulation_addons()
+        if not hasattr(self, "exporting_l"):
+            self.exporting_l = []
+        self.exporting_l.append((np.size(self.batt.exporting) - np.count_nonzero(self.batt.exporting),self.batt.exporting.sum()))
 
         # Ergebnisse in DataFrame schreiben
         self.data["battery_storage"] = storage_levels

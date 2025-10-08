@@ -7,6 +7,7 @@ import os
 import sys
 import logging
 from battery_simulation import BatterySimulation, battery_simulation_version
+#from battery_model import BatteryModel
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ DEBUG = False
         
 class Analyse(BatterySimulation):
 
-    def __init__(self, data=None, basic_data_set={}, **kwargs):
+    def __init__(self, data=None, basic_data_set={}, logger=logger, **kwargs):
         self.data = data
         self.basic_data_set = basic_data_set
         self.logger = logger
@@ -25,8 +26,8 @@ class Analyse(BatterySimulation):
             self.battery_results_pattern = kwargs["battery_results_pattern"]
         else:
             self.battery_results_pattern = None
-        if "has_battery_source_model" in kwargs and battery_simulation_version > "0.0":
-            super().__init__(data=data,basic_data_set=basic_data_set, has_battery_source_model=kwargs["has_battery_source_model"])
+        if "battery_model" in kwargs and battery_simulation_version > "0.9":
+            super().__init__(data=data,basic_data_set=basic_data_set, battery_model=kwargs["battery_model"])
         else:
             super().__init__(data=data,basic_data_set=basic_data_set)
         pass
@@ -113,40 +114,6 @@ class Analyse(BatterySimulation):
             plt.show()
         return df
 
-    # def prepare_price(self):
-    #     if self.year == None:
-    #         self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
-    #     else:
-    #         path = f"{os.path.abspath(os.path.dirname(__file__))}/costs"
-    #         costs = pd.read_csv(f"{path}/{self.year}-hour-price.csv")
-    #         costs["price"] /= 100
-    #         total_average = costs["price"].mean()
-    #         apl = []
-    #         for i, p in enumerate(costs["price"]):
-    #             if i < 12 or i > len(costs["price"])-12:
-    #                 apl.append(total_average)
-    #             else:
-    #                 apl.append(costs["price"][i-12:i+12].mean())
-    #         costs["avrgprice"] = apl
-    #         costs["dtime"] = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S") for t in costs["time"]]
-    #         costs = costs.set_index("dtime")
-    #         if self.data.index[0].year != self.year:
-    #             raise Exception("Year mismatch")
-    #         pl = []
-    #         lstl = []
-    #         i = costs.index[0]
-    #         for t in self.data.index:
-    #             seconds = (t-i).seconds
-    #             # hours = int(seconds/3600)
-    #             if seconds >= 3600 and (i+pd.Timedelta(hours=1)).year == self.year:
-    #                 i += pd.Timedelta(hours=1)
-    #             price = costs["price"].iloc[int((i-costs.index[0]).total_seconds()/3600)]
-    #             pl.append(price)
-    #             lstl.append(costs["avrgprice"].iloc[int((i-costs.index[0]).total_seconds()/3600)])
-    #         self.data["price_per_kwh"] = pl
-    #         self.data["avrgprice"] = lstl
-    #     pass
-
     def prepare_price(self):
         if self.year == None:
             self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
@@ -201,7 +168,7 @@ class Analyse(BatterySimulation):
         self.pos = pos
         self.neg = neg
         self.exflow = exflow
-        share = sum(self.pos)/sum(self.data["my_demand"])
+        share = sum(self.pos)/sum(self.data["my_demand"]) if sum(self.data["my_demand"]) > 0 else 0
         spot_price = sum(self.neg*self.data["price_per_kwh"])
         fix_price = sum(self.neg)*self.costs_per_kwh
         spot_price_no = sum(self.data["my_demand"]*self.data["price_per_kwh"])
@@ -345,20 +312,7 @@ basic_data_set = {
     "wind_nominal_power":5000,
     "fix_contract" : True,
     "marketing_costs" : 0.003,
-    #"battery_discharge": 0.005,
-    #"efficiency_charge": 0.95,     # Ladewirkungsgrad
-    #"efficiency_discharge": 0.95,   # Entladewirkungsgrad
-    #"min_soc": 0.10,               # Min 10% Ladezustand
-    #"max_soc": 0.90,               # Max 90% Ladezustand
-    #"max_c_rate": 1.0,               # Max 90% Ladezustand
-    "battery_discharge": 0.0, #0.0005,      # Fraktion / h
-    "efficiency_charge": 1, #0.96,
-    "efficiency_discharge": 1, #0.96,
-    "min_soc": 0.0, #0.05,
-    "max_soc": 1.0, #0.95,
-    "max_c_rate": 0.5,
-    "r0_ohm": 0.0, # 0.006,                  # Innenwiderstand (Ω)
-    "u_nom": 800.0                    # Nominale Systemspannung (V)
+    "battery_discharge": 0.0005,      # Fraktion / h
 }
 
 """

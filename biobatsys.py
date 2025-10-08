@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 from smard_analyse import Analyse
+from battery_simulation import BatteryModel, battery_simulation_version
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -18,8 +19,82 @@ def remove_holes_from_data(data):
     # data = data.set_index("DateTime")
     return data
 
+class BatteryBioBatModel(BatteryModel):
+    def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
+                 init_storage_kwh=None, i=None, **kwargs):
+        self.basic_data_set = basic_data_set.copy() if basic_data_set else {}
+        super().__init__(basic_data_set=self.basic_data_set, capacity_kwh=capacity_kwh, p_max_kw=p_max_kw, init_storage_kwh=init_storage_kwh, i=i)
+        defaults = {
+            "load_threshold": 0.9,
+            "load_threshold_high": 1.2,
+            "load_threshold_hytheresis": 0.05,
+            "exflow_stop_limit": 0.0,
+        }
+        for k, v in defaults.items():
+            self.basic_data_set.setdefault(k, v)
 
+        self.load_threshold = self.basic_data_set["load_threshold"]
+        self.load_threshold_high = self.basic_data_set["load_threshold_high"]
+        self.load_threshold_hytheresis = self.basic_data_set["load_threshold_hytheresis"]
+        self.exflow_stop_limit = self.basic_data_set["exflow_stop_limit"]
+        self.last_cycle = False
 
+    def is_loading(self, price, avrgprice):
+        if price < self.load_threshold*avrgprice:
+            self.last_cycle = self.load_threshold_hytheresis
+            return True
+        elif price < self.load_threshold*avrgprice + self.last_cycle:
+            return True
+        else:
+            self.last_cycle = 0
+            return False
+    
+    def is_unloading(self, price, avrgprice):
+        # return price > self.load_threshold_high * avrgprice
+        if price > self.load_threshold*avrgprice:
+            self.last_cycle = -self.load_threshold_hytheresis
+            return True
+        elif price < self.load_threshold*avrgprice + self.last_cycle:
+            return True
+        else:
+            self.last_cycle = 0
+            return False
+
+    def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
+        dt_h = kwargs.get("dt_h", 1.0)
+        i = kwargs.get("i", 0)
+        inflow = outflow = residual = exflow = loss = 0.0
+        self._exporting[i] = False
+        if self.is_loading(price, avrgprice):
+            # Laden
+            # see comment above
+            allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
+            actual_charge = min(renew, allowed_energy)
+            if actual_charge > 0:
+                loss = self._r0_losses(actual_charge / dt_h, dt_h)
+                stored_energy = (actual_charge - loss) * self.efficiency_charge
+                inflow = stored_energy
+                current_storage += stored_energy
+                # exflow = renew - actual_charge
+        elif self.is_unloading(price, avrgprice):
+            # Entladen
+            # see comment above
+            allowed_energy = min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
+            actual_discharge = allowed_energy # min(renew, allowed_energy)
+            if actual_discharge > 0:
+                loss = self._r0_losses(actual_discharge / dt_h, dt_h)
+                outflow = (actual_discharge - loss) * self.efficiency_discharge
+                current_storage -= (actual_discharge / self.efficiency_discharge)
+            exflow = renew + outflow
+            self._exporting[i] = True
+            if exflow < 0:
+                raise(ValueError(f"exflow < 0: {exflow}"))
+
+        # Selbstentladung
+        current_storage *= (1.0 - self.battery_discharge * dt_h)
+        current_storage = max(self.min_soc * capacity, min(self.max_soc * capacity, current_storage))
+
+        return [current_storage, inflow, outflow, residual, exflow, loss]
 
 class BioBatSys(Analyse):
 
@@ -31,7 +106,7 @@ class BioBatSys(Analyse):
         self.basic_data_set = basic_data_set
         data = self.load_and_prepare_data(csv_file_path)
         battery_results_pattern = [-1,0,1,0,0,-1]
-        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, has_battery_source_model=True)
+        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, battery_model=BatteryBioBatModel)
 
     def load_and_prepare_data(self, csv_file_path):
         """Load and prepare SMARD data"""
@@ -78,7 +153,7 @@ class BioBatSys(Analyse):
         # self.my_total_demand = my_total_demand
 
         ### this an extimate (for the time being seems better ...)
-        df["my_demand"] = (df["total_demand"] * 0 + self.basic_data_set["hourly_demand_kw"]) * self.resolution
+        df["my_demand"] = (df["total_demand"] * 0)# + self.basic_data_set["hourly_demand_kw"]) * self.resolution
         df["my_renew"] = df["biomass"] * 0 + self.basic_data_set["constant_biogas_kw"]*self.resolution # constant
 
         # print(my_total_demand, sum(df["my_demand"]), sum(pos)+sum(neg))
@@ -93,19 +168,29 @@ class BioBatSys(Analyse):
             plt.show()
         return df
 
+    # only old battery simulaion
     def pre_simulation_addons(self):
-        self.exporting = np.full(self.data.shape[0], False, dtype=bool) 
+
+        if battery_simulation_version > "0.9":
+            self.batt.exporting = np.full(self.data.shape[0], False, dtype=bool)
+        else:
+            self.exporting = np.full(self.data.shape[0], False, dtype=bool) 
         # self.count = int(0)
         # self.i_vals = []
         self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
         self.prices = self.data["price_per_kwh"].values
         self.meanprice = self.data["price_per_kwh"].mean()
 
+    # only old battery simulaion
     def post_simulation_addons(self):
         if not hasattr(self, "exporting_l"):
             self.exporting_l = []
-        self.exporting_l.append((np.size(self.exporting) - np.count_nonzero(self.exporting),self.exporting.sum()))
+        if battery_simulation_version > "0.9":
+            self.exporting_l.append((np.size(self.batt.exporting) - np.count_nonzero(self.batt.exporting),self.batt.exporting.sum()))
+        else:
+            self.exporting_l.append((np.size(self.exporting) - np.count_nonzero(self.exporting),self.exporting.sum()))
 
+    # only old battery simulaion
     def loading_strategie(self, renew, demand, current_storage, capacity, 
                         avrgprice, price, power_per_step, **kwargs):
         """Optimierte Version"""
@@ -139,6 +224,7 @@ class BioBatSys(Analyse):
             exflow = renew
         else:
             self.exporting[i] = False
+        revenue_l = [f"{(self.battery_results["revenue [€]"].iloc[1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
         
         return [current_storage, inflow, outflow, residual, exflow]
 
@@ -148,11 +234,13 @@ class BioBatSys(Analyse):
         sp0 = self.battery_results["spot price [€]"].iloc[1]
         fp0 = self.battery_results["fix price [€]"].iloc[1]
         # rev0 = self.battery_results["revenue [€]"].iloc[1]
-        rev1 = self.battery_results["revenue [€]"].iloc[1]-flex_add
+        rev1 = self.battery_results["revenue [€]"].iloc[1]
         # basval=(self.data["my_renew"]*0+self.basic_data_set["constant_biogas_kw"]*self.resolution)/self.basic_data_set["flex_factor"]
         # rev1 = (basval*self.data["price_per_kwh"]).sum()
-        is_exporting =sum(1 for e in self.exporting if e)
-        not_exporting = sum(1 for e in self.exporting if not e)
+        is_exporting =int(self.exporting_l[1][1])
+        #exporting = sum(1 for e in self.exporting if e)
+        not_exporting = int(self.exporting_l[1][0])
+        #not_exporting = sum(1 for e in self.exporting if not e)
         if abs(self.data["my_renew"].sum())/1000 > 1000:
             scaler=1000
             cols = ["cap MWh","exfl MWh", "rev [T€]", "revadd [T€]", "rev €/kWh"]
@@ -160,16 +248,15 @@ class BioBatSys(Analyse):
             scaler=1
             cols = ["cap kWh","exfl kWh", "rev [€]", "revadd [€]", "rev €/kWh"]
         # [f"{(e0*self.resolution,e1*self.resolution)}" for (e0,e1) in self.exporting_l[1:]]
-        assert len(set(d for d in self.exporting_l[1:])) == 1, f"not all deviables == {self.exporting_l[1]}"
+        # assert len(set(d for d in self.exporting_l[1:])) == 1, f"not all deviables == {self.exporting_l[1]}"
         print(f"exporting {self.exporting_l[1][1]*self.resolution} hours but not {self.exporting_l[1][0]*self.resolution} hours")
         capacity_l = ["no rule"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
         # residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"][1:]]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
         # autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"][1:]]
         # spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"][1:]]
-        # revenue_l = [f"{(self.battery_results["revenue [€]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_l = [f"{(rev1/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_gain = [f"{0:.2f}"] + [f"{((r-rev1+flex_add)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
+        revenue_l = [f"{(self.battery_results["revenue [€]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
+        revenue_gain = [f"nn"] + [f"{((r-rev1+flex_add)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
         capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1+flex_add)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [€]"][3:],self.battery_results["capacity kWh"][3:])]
         values = np.array([capacity_l, exflowl, revenue_l, revenue_gain, capacity_costs]).T
 
@@ -189,26 +276,12 @@ basic_data_set = {
     "constant_biogas_kw":1000,
     "fix_contract" : False,
     "marketing_costs" : 0.003,
-    "battery_discharge": 0.005,
-    "efficiency_charge":    0.98,      # Ladewirkungsgrad
-    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
-    "min_soc": 0.10,               # Min 10% Ladezustand
-    "max_soc": 0.90,               # Max 90% Ladezustand
-    "max_c_rate": 1.0,               # Max 90% Ladezustand
     "flex_add_per_kwh": 100,        # flexibilisierungspauschale
     "flex_factor": 3,               # zubau Faktor für Flexibilisirung
+    "load_threshold_hytheresis": 0.0,
+    "load_threshold": 1.0,
 }
 
-"""
-    "battery_discharge": 0.005,
-    "efficiency_charge":    0.98,      # Ladewirkungsgrad
-    "efficiency_discharge": 0.95,   # Entladewirkungsgrad
-    "min_soc": 0.10,               # Min 10% Ladezustand
-    "max_soc": 0.90,               # Max 90% Ladezustand
-    "max_c_rate": 1.0,               # Max 90% Ladezustand
-    "flex_add_per_kwh": 100,        # flexibilisierungspauschale
-    "flex_factor": 3,               # zubau Faktor für Flexibilisirung
-"""
 def main(argv = []):
     """Main function"""
     if len(argv) > 1:
@@ -222,8 +295,8 @@ def main(argv = []):
         return
     
     analyzer = BioBatSys(data_file, region, basic_data_set=basic_data_set)
-    analyzer.run_analysis(capacity_list=[0.2, 1.0, 5, 10, 20], #, 100], 
-                          power_list=   [0.1, 0.5, 2.5, 5, 10]) #, 50])
+    analyzer.run_analysis(capacity_list=[1.0, 5, 10, 20, 100], 
+                          power_list=   [0.5, 2.5, 5, 10, 50])
     pass
     
 if __name__ == "__main__":
