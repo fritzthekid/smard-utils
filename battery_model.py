@@ -19,18 +19,11 @@ class BatteryModel:
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
+            setattr(self, k, v)
 
         self.capacity_kwh = float(capacity_kwh)
         self.p_max_kw = float(p_max_kw or (self.basic_data_set["max_c_rate"] * self.capacity_kwh))
         self.current_storage = init_storage_kwh or 0.5 * self.capacity_kwh
-
-        self.efficiency_charge = self.basic_data_set["efficiency_charge"]
-        self.efficiency_discharge = self.basic_data_set["efficiency_discharge"]
-        self.min_soc = self.basic_data_set["min_soc"]
-        self.max_soc = self.basic_data_set["max_soc"]
-        self.battery_discharge = self.basic_data_set["battery_discharge"]
-        self.r0_ohm = self.basic_data_set["r0_ohm"]
-        self.u_nom = self.basic_data_set["u_nom"]
         self.history = []
 
     def soc(self):
@@ -52,6 +45,14 @@ class BatteryModel:
     @exporting.setter
     def exporting(self, value):
         self._exporting = value
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
 
     def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
         dt_h = kwargs.get("dt_h", 1.0)

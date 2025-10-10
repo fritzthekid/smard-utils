@@ -213,7 +213,7 @@ class Analyse(BatterySimulation):
             self.simulate_battery(capacity=capacity*1000, power=power*1000)
             # self.print_results_with_battery()
         self.print_battery_results()
-        self.visualise()
+        # self.visualise()
         pass
 
 

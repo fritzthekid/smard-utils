@@ -31,36 +31,86 @@ class BatterySolBatModel(BatteryModel):
             "load_threshold_high": 1.2,
             "load_threshold_hytheresis": 0.05,
             "exflow_stop_limit": 0.0,
+            "limit_soc_threshold": 0.05,
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
+            setattr(self, k, v)
 
-        self.load_threshold = self.basic_data_set["load_threshold"]
-        self.load_threshold_high = self.basic_data_set["load_threshold_high"]
-        self.load_threshold_hytheresis = self.basic_data_set["load_threshold_hytheresis"]
-        self.exflow_stop_limit = self.basic_data_set["exflow_stop_limit"]
-        self.last_cycle = False
-
-    def is_loading(self, price, avrgprice):
-        if price < self.load_threshold*avrgprice:
-            self.last_cycle = self.load_threshold_hytheresis
-            return True
-        elif price < self.load_threshold*avrgprice + self.last_cycle:
-            return True
-        else:
-            self.last_cycle = 0
-            return False
+    # def is_loading(self, price, avrgprice):
+    #     if price < self.load_threshold*avrgprice:
+    #         self.last_cycle = self.load_threshold_hytheresis
+    #         return True
+    #     elif price < self.load_threshold*avrgprice + self.last_cycle:
+    #         return True
+    #     else:
+    #         self.last_cycle = 0
+    #         return False
     
-    def is_unloading(self, price, avrgprice):
-        # return price > self.load_threshold_high * avrgprice
-        if price > self.load_threshold*avrgprice:
-            self.last_cycle = -self.load_threshold_hytheresis
-            return True
-        elif price < self.load_threshold*avrgprice + self.last_cycle:
-            return True
+    # def is_unloading(self, price, avrgprice):
+    #     # return price > self.load_threshold_high * avrgprice
+    #     if price > self.load_threshold*avrgprice:
+    #         self.last_cycle = -self.load_threshold_hytheresis
+    #         return True
+    #     elif price < self.load_threshold*avrgprice + self.last_cycle:
+    #         return True
+    #     else:
+    #         self.last_cycle = 0
+    #         return False
+
+    """
+        Optimierungsziel für nächste 24h
+        maximize: Σ(P_sell × E_discharge) - Σ(P_buy × E_charge)
+
+        constraints:
+        - SOC_min ≤ SOC ≤ SOC_max
+        - P_charge ≤ P_max
+        - P_discharge ≤ P_max
+        - Roundtrip-Effizienz: 88%
+        - Vermarktungskosten: 0,25 ct/kWh
+    """
+
+    # def price_optimal_discharging_factor(self, storage_level, power_per_step, dt_h, i):
+    #     rest_len = min(int(24/dt_h), len(self._data.index)-i)
+    #     price_frame = np.ones((int(24/dt_h),))*self._data["avrgprice"][i]
+    #     price_frame[0:rest_len] = self._data["price_per_kwh"][i:i+rest_len]
+    #     discharging_factor = self._data["price_per_kwh"][i] - self._data["avrgprice"][i]
+    #     return discharging_factor # SOC
+        
+    def setup_discharging_factor(self, i, dt_h):
+        # if int(60*tact.hour + tact.minute) == int(13*60): # 13 Uhr
+        tact = self._data.index[i]
+        tdelta = (self._data.index[1:]-self._data.index[:-1]).mean()
+        price_per_kwh = self._data["price_per_kwh"]        
+        rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
+        if rest_len < int(24/dt_h):
+            newindex = [tact + i*tdelta for i in range(int(24/dt_h))]
         else:
-            self.last_cycle = 0
-            return False
+            newindex = price_per_kwh.index[i:i+rest_len]
+        price_array = np.ones(int(24/dt_h))*price_per_kwh.mean()
+        price_array[:rest_len] = price_per_kwh[i:i+rest_len]
+        if max(price_array) - min(price_array) < 0.001:
+            self.return_zero = True
+            return
+        else:
+            self.return_zero = False
+        price_array[0:rest_len] = price_per_kwh[i:i+rest_len]
+        price_frame = pd.Series(price_array, index=newindex)
+        self.price_sorted = price_frame.sort_values()
+
+    def discharging_factor(self, tact, dt_h):
+        if self.return_zero:
+            return 0.0
+        try:
+            pick_index = np.where(self.price_sorted.index.isin([tact]))[0]
+        except:
+            raise(ValueError)
+        if len(pick_index) != 1:
+            pick_num = 0
+        else:
+            pick_num = pick_index[0]
+        normal_factor = float(2*pick_num/int(24/dt_h)-1)
+        return normal_factor # **3
 
     def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
         dt_h = kwargs.get("dt_h", 1.0)
@@ -69,7 +119,15 @@ class BatterySolBatModel(BatteryModel):
             pass
         inflow = outflow = residual = exflow = loss = 0.0
         self._exporting[i] = False
-        if price < avrgprice:
+
+        discharing_factor = self.discharging_factor(self._data.index[i], dt_h)
+
+        # revenue: (603.80 T€, 651.74 T€) for (True,price >= 0)
+        # time: (8904.0 h, 8176.0 h) for (True, price >= 0)
+        # exflow: (13449.55 MWh, 10055.49 MWh) for (True, price >= 0)
+
+        if discharing_factor < 0 and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold: 
+            # org: price < avrgprice: # and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold:
             # Laden
             # see comment above
             allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
@@ -82,10 +140,8 @@ class BatterySolBatModel(BatteryModel):
             if renew > actual_charge and price > 0.0:
                 exflow = renew - actual_charge
                 self._exporting[i] = True
-            else:
-                exflow = 0
-                self._exporting[i] = False
-        elif price > 1.2 * np.abs(avrgprice):
+        elif discharing_factor > 0.8 and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
+            # org: price > 1.3 * np.abs(avrgprice) and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
             # Entladen
             # see comment above
             allowed_energy = min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
@@ -98,10 +154,12 @@ class BatterySolBatModel(BatteryModel):
             self._exporting[i] = True
             if exflow < 0:
                 raise(ValueError(f"exflow < 0: {exflow}"))
-        elif price >= avrgprice:
-            self.exporting[i] = True
-            exflow = renew
-        
+        elif price >= 0:
+            exflow = max(0,renew)
+            if exflow > 0:  
+                self.exporting[i] = True           
+        elif i > 10000:
+            pass     
 
         # Selbstentladung
         current_storage *= (1.0 - self.battery_discharge * dt_h)
@@ -183,7 +241,7 @@ class SolBatSys(Analyse):
                 self.exporting[i] = 5 # cap 10MW, 7617
                 
         elif price > 0.9 * np.abs(self.meanprice):
-            self.exporting[i] = 2 # 10 MW, 5560
+            self.exporting[i] = 2 # 10 MW,
             exflow = renew
         elif price > 0.0 and renew > 0:
             self.exporting[i] = 3 # 10MW: 1432
@@ -194,7 +252,12 @@ class SolBatSys(Analyse):
         return [current_storage, inflow, outflow, residual, exflow]
 
     def print_battery_results(self):
-        # print(self.battery_results)
+        # revenue: (603.80 T€, 651.74 T€) for (True,price >= 0)
+        # time: (8904.0 h, 8176.0 h) for (True, price >= 0)
+        # exflow: (13449.55 MWh, 10055.49 MWh) for (True, price >= 0)
+        rev0 = (self.data["price_per_kwh"]*self.data["my_renew"]).sum()
+        exf0 = self.data["my_renew"].sum()
+        texp0 = len(self.data["my_renew"])*self.resolution
         sp0 = self.battery_results["spot price [€]"].iloc[1]
         fp0 = self.battery_results["fix price [€]"].iloc[1]
         # rev0 = self.battery_results["revenue [€]"].iloc[1]
@@ -206,16 +269,16 @@ class SolBatSys(Analyse):
         else:
             scaler=1
             cols = ["cap kWh","exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh"]
-        capacity_l = ["no rule"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
+        capacity_l = ["always"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
         # residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"][1:]]
-        exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
+        exflowl = [f"{(exf0/scaler):.1f}"] + [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][2:]]
         # autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"][1:]]
         # spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"][1:]]
         # revenue_l = [f"{(self.battery_results["revenue [€]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_l = [f"{(rev1/scaler):.1f}"]+[f"{((f)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_gain = [f"{0:.2f}"] + [f"{((r-rev1)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
+        revenue_l = [f"{(rev0/scaler):.1f}"]+[f"{((f)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
+        revenue_gain = [f"{((rev0-rev1)/scaler):.2f}"] + [f"{((r-rev1)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
         capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [€]"][3:],self.battery_results["capacity kWh"][3:])]
-        expo_l = [f"{int(len(self.data["my_renew"]*self.resolution))}"] + [f"{int(e[1])}" for e in self.exporting_l]
+        expo_l = [f"{int(texp0)}"] + [f"{int(e[1]*self.resolution)}" for e in self.exporting_l]
         values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs]).T
 
         battery_results_norm = pd.DataFrame(values,
@@ -223,6 +286,13 @@ class SolBatSys(Analyse):
         with pd.option_context('display.max_columns', None):
             print(battery_results_norm)
         pass
+
+    def run_analysis(self, capacity_list=[1.0, 5, 10, 20, 50, 70], #, 100], 
+                  power_list=   [0.5, 2.5, 5, 10, 25, 35]): #, 50]):
+        super().run_analysis(capacity_list=capacity_list, power_list=power_list)
+        self.visualise()
+        pass
+
 
 basic_data_set = {
     "year": 2024,

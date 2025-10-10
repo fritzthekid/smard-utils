@@ -30,11 +30,19 @@ class BatterySimulation:
         current_storage = 0.5 * capacity
 
         self.batt.exporting = np.full(self.data.shape[0], False, dtype=bool)
-        self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
-        self.prices = self.data["price_per_kwh"].values
-        self.meanprice = self.data["price_per_kwh"].mean()
+        # self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
+        # self.prices = self.data["price_per_kwh"].values
+        # self.meanprice = self.data["price_per_kwh"].mean()
+        self.batt.data = self.data
+
+        if hasattr(self.batt, "setup_discharging_factor"):
+            self.batt.setup_discharging_factor(0, self.resolution)
 
         for i, (r, d, p, ap) in enumerate(zip(renew, demand, price, avrgprice)):
+            if hasattr(self.batt, "setup_discharging_factor"):
+                tact = self.data.index[i]
+                if 60*tact.hour + tact.minute == 13*60: # 13 Uhr:
+                    self.batt.setup_discharging_factor(i, self.resolution)
             new_storage, inflow, outflow, residual, exflow, loss = self.batt.loading_strategie(
                 renew=r,
                 demand=d,
