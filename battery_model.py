@@ -19,7 +19,7 @@ class BatteryModel:
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
-            setattr(self, k, v)
+            setattr(self, k, self.basic_data_set[k])
 
         self.capacity_kwh = float(capacity_kwh)
         self.p_max_kw = float(p_max_kw or (self.basic_data_set["max_c_rate"] * self.capacity_kwh))
@@ -140,7 +140,7 @@ class BatterySourceModel(BatteryModel):
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
-            setattr(self, k, v)
+            setattr(self, k, self.basic_data_set[k])
 
         # self.load_threshold = self.basic_data_set["load_threshold"]
         # self.load_threshold_high = self.basic_data_set["load_threshold_high"]

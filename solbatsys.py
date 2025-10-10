@@ -34,7 +34,7 @@ class BatterySolBatModel(BatteryModel):
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
-            setattr(self, k, v)
+            setattr(self, k, self.basic_data_set[k])
         
     def setup_discharging_factor(self, i, dt_h):
         # if int(60*tact.hour + tact.minute) == int(13*60): # 13 Uhr

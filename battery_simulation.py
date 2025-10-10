@@ -16,6 +16,12 @@ class BatterySimulation:
         self.batt = battery_model(basic_data_set=self.basic_data_set,
                                 capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
                                 p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
+        defaults = {
+            "marketing_costs": 0.0,
+        }
+        for k, v in defaults.items():
+            self.basic_data_set.setdefault(k, v)
+            setattr(self, k, self.basic_data_set[k])
 
     def simulate_battery(self, capacity=2000, power=1000):
         """Simulation mit internem battery-Objekt"""
@@ -76,7 +82,7 @@ class BatterySimulation:
         autarky_rate = 1.0 - (sum(residuals) / sum(demand))
         spot_total_eur = float(np.sum(np.array(residuals) * price))
         fix_total_eur = float(sum(residuals) * self.costs_per_kwh)
-        revenue_total = float(np.sum(np.array(exflows) * price))
+        revenue_total = float(np.sum(np.array(exflows) * (price-self.marketing_costs)))
 
         result = pd.DataFrame([[
             capacity, sum(residuals), sum(exflows), autarky_rate,
