@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
-from battery_model import BatteryModel, BatterySourceModel # Standard and extended model
+from battery_model import BatteryModel
 
 battery_simulation_version = "1.0"
 
 class BatterySimulation:
+
     def __init__(self, data=None, basic_data_set=None, battery_model=BatteryModel, **kwargs):
         self.data = data if data is not None else pd.DataFrame()
         self.basic_data_set = basic_data_set if basic_data_set is not None else {}
@@ -30,9 +31,6 @@ class BatterySimulation:
         current_storage = 0.5 * capacity
 
         self.batt.exporting = np.full(self.data.shape[0], False, dtype=bool)
-        # self.charge_conditions = (self.data["oel"] > self.data["solar"]).values
-        # self.prices = self.data["price_per_kwh"].values
-        # self.meanprice = self.data["price_per_kwh"].mean()
         self.batt.data = self.data
 
         if hasattr(self.batt, "setup_discharging_factor"):
@@ -61,7 +59,7 @@ class BatterySimulation:
             residuals.append(residual)
             exflows.append(exflow)
             losses.append(loss)
-            self.logger.debug(f"{(new_storage, inflow, outflow, residual, exflow, loss)}")
+            # self.logger.debug(f"{(new_storage, inflow, outflow, residual, exflow, loss)}")
 
         if not hasattr(self, "exporting_l"):
             self.exporting_l = []
@@ -133,5 +131,6 @@ if __name__ == "__main__":
 
     # from battery_simulation import BatterySimulation
     sim = BatterySimulation(data=data, basic_data_set=params)
+    sim.resolution = (data.index[1:]-data.index[:-1]).mean().seconds/3600
     sim.run_battery_comparison(capacities=[2000], power_factor=0.5)
     pass

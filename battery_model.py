@@ -140,11 +140,12 @@ class BatterySourceModel(BatteryModel):
         }
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
+            setattr(self, k, v)
 
-        self.load_threshold = self.basic_data_set["load_threshold"]
-        self.load_threshold_high = self.basic_data_set["load_threshold_high"]
-        self.load_threshold_hytheresis = self.basic_data_set["load_threshold_hytheresis"]
-        self.exflow_stop_limit = self.basic_data_set["exflow_stop_limit"]
+        # self.load_threshold = self.basic_data_set["load_threshold"]
+        # self.load_threshold_high = self.basic_data_set["load_threshold_high"]
+        # self.load_threshold_hytheresis = self.basic_data_set["load_threshold_hytheresis"]
+        # self.exflow_stop_limit = self.basic_data_set["exflow_stop_limit"]
         self.last_cycle = False
 
     def is_loading(self, price, avrgprice):

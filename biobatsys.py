@@ -78,7 +78,7 @@ class BatteryBioBatModel(BatteryModel):
                 # exflow = renew - actual_charge
         elif self.is_unloading(price, avrgprice):
             # Entladen
-            # see comment above
+            # see comment above: super().loading_stragegy()
             allowed_energy = min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
             actual_discharge = allowed_energy # min(renew, allowed_energy)
             if actual_discharge > 0:
