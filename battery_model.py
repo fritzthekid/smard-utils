@@ -1,6 +1,6 @@
 
 # bat_model_extended.py
-import math
+import numpy as np
 
 class BatteryModel:
     def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
@@ -37,6 +37,30 @@ class BatteryModel:
         i = p_w / self.u_nom               # A
         p_loss_w = (i ** 2) * self.r0_ohm  # W
         return (p_loss_w * dt_h) / 1000.0  # in kWh
+
+    def setup_discharging_factor(self, i, dt_h):
+        price_per_kwh = self._data["price_per_kwh"]
+        rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
+        vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j]) for j in range(i,i+rest_len)]
+        vals_set = []
+        vals_indices = []
+        for val in vals:
+            if val[0] not in vals_indices:
+                vals_set.append(val)
+                vals_indices.append(val[0])
+        assert len(vals_set) < 25, f"vals_set largen than 24: {len(vals_set)}"
+        vals = sorted(vals_set, key=lambda x: x[1])
+        nvals = np.ones(24)*12
+        for i,v in enumerate(vals):
+            nvals[v[0]] = i
+        if max(nvals)-min(nvals) < 0.001:
+            self.price_array = np.zeros(24)
+        else:
+            self.price_array=((nvals-min(nvals))/(max(nvals)-min(nvals))*2)-1
+        return
+
+    def discharging_factor(self, tact, dt_h):
+        return (self.price_array[tact.hour])
 
     @property
     def exporting(self):
