@@ -69,21 +69,7 @@ class BatterySolBatModel(BatteryModel):
         df, df_min, sub = 3, 0.7, 0.0
         #  best for capacity <= 20 MWh, ok vor >> 20 MWh
         # _, df_min, sub = 1.3, 0.8, 1.0
-        if discharing_factor < 0 and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold: 
-            # org: price < avrgprice: # and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold:
-            # Laden
-            # see comment above
-            allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
-            actual_charge = min(renew, allowed_energy)
-            if actual_charge > 0:
-                loss = self._r0_losses(actual_charge / dt_h, dt_h)
-                stored_energy = (actual_charge - loss) * self.efficiency_charge
-                inflow = stored_energy
-                current_storage += stored_energy
-            if renew > actual_charge and price > 0.0: # and self.control_exflow > 0:
-                exflow = renew - actual_charge
-                self._exporting[i] = True
-        elif discharing_factor > df_min and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
+        if discharing_factor > df_min and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
             # org: price > 1.3 * np.abs(avrgprice) and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
             # Entladen
             # see comment above
@@ -97,7 +83,21 @@ class BatterySolBatModel(BatteryModel):
             self._exporting[i] = True
             if exflow < 0:
                 raise(ValueError(f"exflow < 0: {exflow}"))
-        elif price >= 0: # and self.control_exflow > 1:
+        elif discharing_factor < 0 and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold: 
+            # org: price < avrgprice: # and current_storage <= (self.max_soc - self.limit_soc_threshold) * capacity and current_storage >= self.limit_soc_threshold:
+            # Laden
+            # see comment above
+            allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
+            actual_charge = min(renew, allowed_energy)
+            if actual_charge > 0:
+                loss = self._r0_losses(actual_charge / dt_h, dt_h)
+                stored_energy = (actual_charge - loss) * self.efficiency_charge
+                inflow = stored_energy
+                current_storage += stored_energy
+            if renew > actual_charge and price > 0.0 and self.control_exflow > 0:
+                exflow = renew - actual_charge
+                self._exporting[i] = True
+        elif price >= 0 and self.control_exflow > 1:
             exflow = max(0,renew)
             if exflow > 0:  
                 self.exporting[i] = True           
@@ -172,7 +172,7 @@ basic_data_set = {
     "wind_nominal_power":0,
     "constant_biogas_kw":0,
     "fix_contract" : False,
-    "marketing_costs" : 0.003,
+    "marketing_costs" : -0.003, # revenue lost on spot prices
 }
 
 

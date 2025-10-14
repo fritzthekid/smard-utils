@@ -6,7 +6,7 @@ import sys
 import logging
 from smard_analyse import Analyse
 from battery_simulation import BatteryModel, battery_simulation_version
-
+from solbatsys import BatterySolBatModel
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
@@ -275,11 +275,12 @@ basic_data_set = {
     "wind_nominal_power":0,
     "constant_biogas_kw":1000,
     "fix_contract" : False,
-    "marketing_costs" : 0.003,
+    "marketing_costs" : -0.003, # revenue lost on spot prices
     "flex_add_per_kwh": 100,        # flexibilisierungspauschale
     "flex_factor": 3,               # zubau Faktor für Flexibilisirung
     "load_threshold_hytheresis": 0.0,
     "load_threshold": 1.0,
+    "control_exflow": 0,
 }
 
 def main(argv = []):

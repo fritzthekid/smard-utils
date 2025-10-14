@@ -79,7 +79,10 @@ class BatterySimulation:
         self.data["exflow"] = exflows
         self.data["loss"] = losses
 
-        autarky_rate = 1.0 - (sum(residuals) / sum(demand))
+        if sum(demand) == 0:
+            autarky_rate = 1.0
+        else:
+            autarky_rate = 1.0 - (sum(residuals) / sum(demand))
         spot_total_eur = float(np.sum(np.array(residuals) * price))
         fix_total_eur = float(sum(residuals) * self.costs_per_kwh)
         revenue_total = float(np.sum(np.array(exflows) * (price-self.marketing_costs)))

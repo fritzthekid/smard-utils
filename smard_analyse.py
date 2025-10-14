@@ -147,8 +147,8 @@ class Analyse(BatterySimulation):
             hours_diff = np.clip(hours_diff, 0, len(costs)-1)
             
             # Nutze iloc mit Array-Indexing (viel schneller!)
-            self.data["price_per_kwh"] = costs["price"].iloc[hours_diff].values - self.basic_data_set["marketing_costs"]
-            self.data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values - self.basic_data_set["marketing_costs"]
+            self.data["price_per_kwh"] = costs["price"].iloc[hours_diff].values + self.basic_data_set["marketing_costs"]
+            self.data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values + self.basic_data_set["marketing_costs"]
 
     def prepare_data(self):
         if "battery_discharge" in self.basic_data_set:
@@ -222,7 +222,10 @@ class Analyse(BatterySimulation):
         print(f"total demand: {(sum(self.data["my_demand"])/1e3):.2f} MWh " +
               f"total Renewable_Source: {(sum(self.data["my_renew"])/1e3):.2f} MWh")
         print(f"total renewalbes: {(sum(self.pos)/1000):.2f} MWh, residual: {(sum(self.neg)/1000):.2f} MWh")
-        print(f"share without battery {(sum(self.pos)/self.my_total_demand):.2f}")
+        if self.my_total_demand == 0.0:
+            print(f"share without battery 0.0")
+        else:   
+            print(f"share without battery {(sum(self.pos)/self.my_total_demand):.2f}")
 
     def print_battery_results(self):
         # print(self.battery_results)
@@ -343,6 +346,7 @@ def main(argv = []):
     analyzer = MeineAnalyse(data_file, region, basic_data_set=basic_data_set)
     analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 20, 100], 
                           power_list=   [0.05, 0.5, 0.25, 10,  50])
+    analyzer.visualise()
     
     # # Einzelne Simulation
 
