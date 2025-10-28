@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smard-utils"
+version = "0.1.0"
+# dynamic = ["version"]
+description = "Utilities for the Marktstammdatenregister"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {text = "BSD License"}
+authors = [
+    {name = "Eduard Moser", email = "eduard.moser@gmx.de"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "seaborn",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/fritzthekid/smard-utils"
+
+[project.scripts]
+smard = "smard_utils.smard_analyse:main"
+biobatsys = "smard_utils.biobatsys:main"
+solbatsys = "smard_utils.solbatsys:main"
+senec = "smard_utils.senec_analyes:main"
+
+[tool.setuptools]
+packages = {find = {}}
+
+[tool.setuptools.dynamic]
+version = {attr = "smard_utils.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
