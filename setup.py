@@ -43,6 +43,10 @@ setup(
     cmdclass={"test": PyTest},
     entry_points={
         "console_scripts": [
+            "smard=smard_utils.smard_analyse:main",
+            "biobatsys=smard_utils.biobatsys:main",
+            "solbatsys=smard_utils.solbatsys:main",
+            "senec=smard_utils.senec_analyes:main",
         ],
     },
     author="Eduard Moser",

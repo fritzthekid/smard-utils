@@ -8,7 +8,7 @@ python -m venv .venv
 pip install -e .
 ~~~
 
-Standard conviguration
+Standard configuration
 
 ~~~
 python smard_utils/smard_utils.py

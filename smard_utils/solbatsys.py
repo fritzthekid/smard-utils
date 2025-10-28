@@ -8,9 +8,6 @@ from smard_utils.smard_analyse import Analyse, logger, root_dir
 from smard_utils.battery_simulation import BatteryModel, battery_simulation_version
 from smard_utils.battery_model import BatterySolBatModel
 
-logging.basicConfig(level=logging.WARN)
-logger = logging.getLogger(__name__)
-
 DEBUG = False
 
 def remove_holes_from_data(data):
