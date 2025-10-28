@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import logging
-from smard_analyse import Analyse
-from battery_simulation import BatteryModel, battery_simulation_version
-from battery_model import BatterySolBatModel
+from smard_utils.smard_analyse import Analyse, logger, root_dir
+from smard_utils.battery_simulation import BatteryModel, battery_simulation_version
+from smard_utils.battery_model import BatterySolBatModel
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def main(argv = []):
         region = f"_{argv[1]}"
     else:
         region = "_de"
-    data_file = f"quarterly/smard_data{region}/smard_2024_complete.csv"
+    data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
     
     if not os.path.exists(data_file):
         print(f"❌ Data file not found: {data_file}")

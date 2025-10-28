@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from battery_model import BatteryModel
+from smard_utils.battery_model import BatteryModel
 
 battery_simulation_version = "1.0"
 

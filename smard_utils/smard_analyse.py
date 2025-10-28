@@ -6,8 +6,8 @@ from datetime import datetime
 import os
 import sys
 import logging
-from battery_simulation import BatterySimulation, battery_simulation_version
-from battery_model import BatterySolBatModel, BatteryModel
+from smard_utils.battery_simulation import BatterySimulation, battery_simulation_version
+from smard_utils.battery_model import BatterySolBatModel, BatteryModel
 
 
 logging.basicConfig(level=logging.WARN)
@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 DEBUG = False
 
-        
+root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/.."
+
 class Analyse(BatterySimulation):
 
     def __init__(self, data=None, basic_data_set={}, logger=logger, **kwargs):
@@ -119,7 +120,7 @@ class Analyse(BatterySimulation):
         if self.year == None:
             self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
         else:
-            path = f"{os.path.abspath(os.path.dirname(__file__))}/costs"
+            path = f"{root_dir}/costs"
             costs = pd.read_csv(f"{path}/{self.year}-hour-price.csv")
             costs["price"] /= 100
             total_average = costs["price"].mean()
@@ -352,7 +353,7 @@ def main(argv = []):
         region = f"_{argv[1]}"
     else:
         region = "_lu"
-    data_file = f"quarterly/smard_data{region}/smard_2024_complete.csv"
+    data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
     
     if not os.path.exists(data_file):
         print(f"❌ Data file not found: {data_file}")

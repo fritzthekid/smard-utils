@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
-from smard_analyse import Analyse
+from smard_utils.smard_analyse import Analyse, logger, root_dir
 
 class Senec(Analyse):
 
@@ -121,7 +121,7 @@ basic_data_set = {
 }
 
 def main(argv=[]):
-    file_path=f"{os.path.abspath(os.path.dirname(__file__))}/sma/senec_data_2024/2024-combine.csv"
+    file_path=f"{root_dir}/data/sma/senec_data_2024/2024-combine.csv"
     if len(argv) > 1:
         file_path = f"{argv[1]}"
 
