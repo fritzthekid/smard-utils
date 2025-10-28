@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from battery_model import BatteryModel
 
 battery_simulation_version = "1.0"
@@ -97,7 +98,35 @@ class BatterySimulation:
                 "fix price [€]", "revenue [€]", "loss kWh"
             ])
         self.battery_results = pd.concat([self.battery_results, result], ignore_index=True) if self.battery_results is not None else result
+        # l = self.give_dark_time(1200.0, capacity)
         return result
+
+    def give_dark_time(self, level = 1200.0, capacity = 1000.0):
+        pass
+        battery_low = [i < level for i in self.data["battery_storage"]]
+        act = 0
+        l = []
+        for v in battery_low:
+            if v:
+                act += 1
+            else:
+                act = 0
+            l.append(act)
+        ll = l[::-1]
+        for i,v in enumerate(ll):
+            if v > 0 and ll[i-1] > 0:
+                ll[i] = ll[i-1]
+        day = 4*24
+        numdays = 50
+        s = sorted(ll)
+        plt.plot(np.linspace(0,50,len(l[:numdays*day])),np.array(s[::-1][:numdays*day])/day)
+        # plt.plot(np.array(l[::-1])[:50*day]/(4*24))
+        plt.title(f"capacity: {capacity/1000:.2f} MWh")
+        plt.ylabel("days")
+        plt.xlabel("days")
+        plt.show()
+        return sorted(l)
+
 
     def run_battery_comparison(self, capacities=[2000], power_factor=0.5):
         """Mehrere Batteriekapazitäten vergleichen"""

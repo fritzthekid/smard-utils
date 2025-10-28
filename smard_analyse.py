@@ -7,7 +7,8 @@ import os
 import sys
 import logging
 from battery_simulation import BatterySimulation, battery_simulation_version
-#from battery_model import BatteryModel
+from battery_model import BatterySolBatModel, BatteryModel
+
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -304,7 +305,10 @@ class MeineAnalyse(Analyse):
         
         self.basic_data_set = basic_data_set
         data = self.load_and_prepare_data(csv_file_path)
-        super().__init__(data, basic_data_set)
+        super().__init__(data, basic_data_set, battery_model=BatteryModel)
+        # self.batt.battery_cond_load = battery_cond_load
+        # self.batt.battery_cond_export_a = battery_cond_export_a
+        # self.batt.battery_cond_export_b = battery_cond_export_b
 
 
 basic_data_set = {
@@ -331,6 +335,17 @@ defaults = {
 }
 """
 
+def battery_cond_load(energy_balance, discharing_factor, current_storage, max_soc, limit_soc_threshold, capacity):
+    return energy_balance > 0
+
+def battery_cond_export_a(energy_balance, discharing_factor, df_min, current_storage, min_soc, limit_soc_threshold, capacity):
+    return energy_balance > 0
+
+def battery_cond_export_b(energy_balance, price, control_exflow):
+    return energy_balance > 0
+    
+
+
 def main(argv = []):
     """Main function"""
     if len(argv) > 1:
@@ -344,9 +359,12 @@ def main(argv = []):
         return
     
     analyzer = MeineAnalyse(data_file, region, basic_data_set=basic_data_set)
-    analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 20, 100], 
-                          power_list=   [0.05, 0.5, 0.25, 10,  50])
+    analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 10, 20],#, 100], 
+                          power_list=   [0.05, 0.5, 2.5, 5, 10])
     analyzer.visualise()
+    for capacity, power in zip([ 5, 10],[2.5, 5]):
+        analyzer.simulate_battery(capacity=capacity*1000, power=power*1000)
+        analyzer.give_dark_time(capacity*1000/10, capacity*1000)
     
     # # Einzelne Simulation
 
