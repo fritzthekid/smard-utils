@@ -121,7 +121,7 @@ basic_data_set = {
 }
 
 def main(argv=[]):
-    file_path=f"{root_dir}/data/senec_data_2024/2024-combine.csv"
+    file_path=f"{root_dir}/data/senec_data/2024-combine.csv"
     if len(argv) > 1:
         file_path = f"{argv[1]}"
 
