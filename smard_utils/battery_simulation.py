@@ -124,7 +124,11 @@ class BatterySimulation:
         plt.title(f"capacity: {capacity/1000:.2f} MWh")
         plt.ylabel("days")
         plt.xlabel("days")
-        plt.show()
+        if not hasattr(self,"pytest"):
+            plt.show()
+        else:
+            if hasattr(self,"pytest_path"):
+                plt.savefig(f"{self.pytest_path}/fig_{capacity}.svg")
         return sorted(l)
 
 

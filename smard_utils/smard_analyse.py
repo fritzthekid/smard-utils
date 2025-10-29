@@ -268,6 +268,12 @@ class Analyse(BatterySimulation):
         pass
 
     def visualise(self, start=0, end=None):
+        if hasattr(self,"pytest"):
+            with open("/tmp/x.log","a") as f:
+                f.writelines(f"is pytest log: {str(datetime.now())[:19]}"+"\n")
+        else:
+            with open("/tmp/x.log","a") as f:
+                f.writelines(f"not pytest log: {str(datetime.now())[:19]}"+"\n")
         if end is None:
             end = len(self.data)        
         fig, [ax1, ax2, ax3, ax4] = plt.subplots(4, 1, sharex=True)
@@ -293,8 +299,11 @@ class Analyse(BatterySimulation):
         ax4.set_xlabel("Date")
         ax4.set_ylabel("[kWh]")
         ax4.grid(True)
-        plt.show()
-
+        if not hasattr(self,"pytest"):
+            plt.show()
+        else:
+            if hasattr(self,"pytest_path"):
+                plt.savefig(f"{self.pytest_path}/fig_visualize.svg")
         pass
 
 class MeineAnalyse(Analyse):
@@ -358,7 +367,7 @@ def main(argv = []):
     if not os.path.exists(data_file):
         print(f"❌ Data file not found: {data_file}")
         return
-    
+
     analyzer = MeineAnalyse(data_file, region, basic_data_set=basic_data_set)
     analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 10, 20],#, 100], 
                           power_list=   [0.05, 0.5, 2.5, 5, 10])

@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import pytest
+import matplotlib.pyplot as plt
 
 sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/..")
 
@@ -13,5 +14,6 @@ def test_basic():
     assert simple is not None
 
 def test_main():
+    # plt.ioff()
     main()
 
