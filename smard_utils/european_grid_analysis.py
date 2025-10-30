@@ -11,6 +11,8 @@ import seaborn as sns
 from datetime import datetime
 import os
 import sys
+from smard_utils.smard_analyse import root_dir
+
 
 if len(sys.argv) > 1:
     expansion = np.float64(sys.argv[1])
@@ -281,9 +283,11 @@ class EuropeanGridAnalyzer:
             ("German only (no imports)", 0, False),
             ("+ 10 GWh German battery", 10, False),
             ("+ 50 GWh German battery", 50, False),
+            ("+ 1000 TWh German battery", 1000000, False),
             ("+ European grid (no battery)", 0, True),
             ("+ European grid + 10 GWh battery", 10, True),
-            ("+ European grid + 50 GWh battery", 50, True)
+            ("+ European grid + 50 GWh battery", 50, True),
+            ("+ European grid + 1000 TWh battery", 1000000, True),
         ]
         
         results = []
@@ -362,8 +366,11 @@ class EuropeanGridAnalyzer:
                 ax2.text(i, v + 0.5, f'-{v:.2f}pp', ha='center', va='bottom')
         
         plt.tight_layout()
-        plt.savefig('european_grid_analysis.png', dpi=300, bbox_inches='tight')
-        plt.show()
+        plt.savefig(f'{root_dir}/doc/fig_european_grid_analysis.png', dpi=300, bbox_inches='tight')
+        if hasattr(self,"pytest_path"):
+            plt.savefig(f"{self.pytest_path}/fig_european_grid_analysis.svg")
+        else:
+            plt.show()
     
     def run_analysis(self):
         """Run complete European grid analysis"""
@@ -394,7 +401,7 @@ class EuropeanGridAnalyzer:
 
 def main():
     """Main function"""
-    data_file = "smard_data/smard_2024_complete.csv"
+    data_file = f"{root_dir}/quarterly/smard_data_de/smard_2024_complete.csv"
     
     if not os.path.exists(data_file):
         print(f"❌ Data file not found: {data_file}")

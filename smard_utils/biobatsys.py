@@ -165,7 +165,10 @@ class BioBatSys(Analyse):
         if DEBUG:
             plt.plot(df["my_renew"])
             plt.plot(df["my_demand"])
-            plt.show()
+            if hasattr(self,"pytest_path"):
+                plt.savefig(f"{self.pytest_path}/fig_debug.svg")
+            else:
+                plt.show()
         return df
 
     # only old battery simulaion
@@ -296,6 +299,8 @@ def main(argv = []):
         return
     
     analyzer = BioBatSys(data_file, region, basic_data_set=basic_data_set)
+    if "pytest_path" in argv:
+        analyzer.pytest_path = argv["pytest_path"]
     analyzer.run_analysis(capacity_list=[1.0, 5, 10, 20, 100], 
                           power_list=   [0.5, 2.5, 5, 10, 50])
     pass

@@ -113,7 +113,10 @@ class Analyse(BatterySimulation):
         if DEBUG:
             plt.plot(df["my_renew"])
             plt.plot(df["my_demand"])
-            plt.show()
+            if hasattr(self,"pytest_path"):
+                plt.savefig(f"{self.pytest_path}/fig_debug.svg")
+            else:
+                plt.show()
         return df
 
     def prepare_price(self):
@@ -139,7 +142,7 @@ class Analyse(BatterySimulation):
             costs["dtime"] = pd.to_datetime(costs["time"])
             costs = costs.set_index("dtime")
             
-            if self.data.index[0].year != self.year:
+            if costs.index[0].year != self.year:
                 raise Exception("Year mismatch")
             
             # ✓ OPTIMIERT: Verwende vectorized Operations
@@ -299,11 +302,10 @@ class Analyse(BatterySimulation):
         ax4.set_xlabel("Date")
         ax4.set_ylabel("[kWh]")
         ax4.grid(True)
-        if not hasattr(self,"pytest"):
-            plt.show()
+        if hasattr(self,"pytest_path"):
+            plt.savefig(f"{self.pytest_path}/fig_visualize.svg")
         else:
-            if hasattr(self,"pytest_path"):
-                plt.savefig(f"{self.pytest_path}/fig_visualize.svg")
+            plt.show()
         pass
 
 class MeineAnalyse(Analyse):
@@ -369,6 +371,8 @@ def main(argv = []):
         return
 
     analyzer = MeineAnalyse(data_file, region, basic_data_set=basic_data_set)
+    if "pytest_path" in argv:
+        analyzer.pytest_path = argv["pytest_path"]
     analyzer.run_analysis(capacity_list=[ 0.1, 1.0,    5, 10, 20],#, 100], 
                           power_list=   [0.05, 0.5, 2.5, 5, 10])
     analyzer.visualise()

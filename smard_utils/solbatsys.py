@@ -82,10 +82,10 @@ basic_data_set = {
 }
 
 
-def main(argv = []):
+def main(argv = {}):
     """Main function"""
-    if len(argv) > 1:
-        region = f"_{argv[1]}"
+    if "region" in argv:
+        region = f"_{argv["region"]}"
     else:
         region = "_de"
     data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
@@ -95,9 +95,14 @@ def main(argv = []):
         return
     
     analyzer = SolBatSys(data_file, region, basic_data_set=basic_data_set)
+    if "pytest_path" in argv:
+        analyzer.pytest_path = argv["pytest_path"]
     analyzer.run_analysis(capacity_list=[1.0, 5, 10, 20, 50, 70], #, 100], 
                           power_list=   [0.5, 2.5, 5, 10, 25, 35]) #, 50])
     pass
     
 if __name__ == "__main__":
-    main(argv = sys.argv)
+    if len(sys.argv) > 1:
+        main({"region":sys.argv[1]})
+    else:
+        main(sys.argv)

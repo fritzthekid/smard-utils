@@ -102,7 +102,10 @@ class Senec(Analyse):
         ax2.set_title("level")
         ax2.set_ylabel("[kWh]")
         ax2.grid(True)
-        plt.show()
+        if hasattr(self,"pytest_path"):
+            plt.savefig(f"{self.pytest_path}/fig_details.svg")
+        else:
+            plt.show()
         pass
 
 basic_data_set = {
@@ -120,12 +123,15 @@ basic_data_set = {
     "max_c_rate": 1.0,               # Max 90% Ladezustand
 }
 
-def main(argv=[]):
+def main(argv={}):
+    import re
     file_path=f"{root_dir}/data/senec_data/2024-combine.csv"
-    if len(argv) > 1:
-        file_path = f"{argv[1]}"
-
+    if "file_path" in argv:
+        file_path = f"{argv['file_path']}"
+        basic_data_set["year"] = int(re.sub(".*/20","20",file_path)[:4])
     senec = Senec(file_path, basic_data_set=basic_data_set)
+    if "pytest_path" in argv:
+        senec.pytest_path = argv["pytest_path"]
     senec.run_analysis(capacity_list=[0, 0.005, 0.010, 0.10, 0.005], 
                        power_list=   [0, 0.0025,0.005, 0.05, 0.0025])
     # senec.visualise(start=23900, end=24200) ## 2020
@@ -136,4 +142,7 @@ def main(argv=[]):
     pass
 
 if __name__ == "__main__":
-    main(sys.argv)
+    if len(sys.argv) > 1:
+        main({"file_path":sys.argv[1]})
+    else:
+        main(sys.argv)
