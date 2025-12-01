@@ -38,26 +38,26 @@ class BatteryModel:
         p_loss_w = (i ** 2) * self.r0_ohm  # W
         return (p_loss_w * dt_h) / 1000.0  # in kWh
 
-    def setup_discharging_factor(self, i, dt_h):
-        price_per_kwh = self._data["price_per_kwh"]
-        rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
-        vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j]) for j in range(i,i+rest_len)]
-        vals_set = []
-        vals_indices = []
-        for val in vals:
-            if val[0] not in vals_indices:
-                vals_set.append(val)
-                vals_indices.append(val[0])
-        assert len(vals_set) < 25, f"vals_set largen than 24: {len(vals_set)}"
-        vals = sorted(vals_set, key=lambda x: x[1])
-        nvals = np.ones(24)*12
-        for i,v in enumerate(vals):
-            nvals[v[0]] = i
-        if max(nvals)-min(nvals) < 0.001:
-            self.price_array = np.zeros(24)
-        else:
-            self.price_array=((nvals-min(nvals))/(max(nvals)-min(nvals))*2)-1
-        return
+    # def setup_discharging_factor(self, i, dt_h):
+    #     price_per_kwh = self._data["price_per_kwh"]
+    #     rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
+    #     vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j]) for j in range(i,i+rest_len)]
+    #     vals_set = []
+    #     vals_indices = []
+    #     for val in vals:
+    #         if val[0] not in vals_indices:
+    #             vals_set.append(val)
+    #             vals_indices.append(val[0])
+    #     assert len(vals_set) < 25, f"vals_set largen than 24: {len(vals_set)}"
+    #     vals = sorted(vals_set, key=lambda x: x[1])
+    #     nvals = np.ones(24)*12
+    #     for i,v in enumerate(vals):
+    #         nvals[v[0]] = i
+    #     if max(nvals)-min(nvals) < 0.001:
+    #         self.price_array = np.zeros(24)
+    #     else:
+    #         self.price_array=((nvals-min(nvals))/(max(nvals)-min(nvals))*2)-1
+    #     return
 
     def discharging_factor(self, tact, dt_h):
         return (self.price_array[tact.hour])
@@ -337,3 +337,100 @@ class BatterySolBatModel(BatteryModel):
 
         return [current_storage, inflow, outflow, residual, exflow, loss]
 
+class BatteryRawBatModel:
+
+    def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
+                 init_storage_kwh=None, i=None, **kwargs):
+        self.basic_data_set = basic_data_set.copy() if basic_data_set else {}
+        defaults = {
+            "battery_discharge": 0.0005,      # Selbstentladung [Fraktion pro Stunde], typ. 0.01–0.001 %/h
+            "efficiency_charge": 0.96,        # Wirkungsgrad beim Laden (Energie → Speicher)
+            "efficiency_discharge": 0.96,     # Wirkungsgrad beim Entladen (Speicher → Energieabgabe)
+            "min_soc": 0.05,                  # Untere Ladegrenze [5 % vom Speicher] → verhindert Tiefentladung
+            "max_soc": 0.95,                  # Obere Ladegrenze [95 % vom Speicher] → schützt vor Überladung
+            "max_c_rate": 0.5,                # Maximale C-Rate (0.5 C = Vollladung/Entladung in 2 h)
+            "fix_contract": False,            # True = fester Strompreisvertrag, False = Spotmarktpreis aktiv
+            "r0_ohm": 0.006,                  # Interner Widerstand (Ω) → ohmsche Verluste I²·R
+            "u_nom": 800.0,                    # Nominale Systemspannung [V] → typisch für 1 MW Batterie
+            "limit_soc_threshold": 0.05,
+            "control_exflow": 3,
+        }
+        for k, v in defaults.items():
+            self.basic_data_set.setdefault(k, v)
+            setattr(self, k, self.basic_data_set[k])
+
+        self.capacity_kwh = float(capacity_kwh)
+        self.p_max_kw = float(p_max_kw or (self.basic_data_set["max_c_rate"] * self.capacity_kwh))
+        self.current_storage = init_storage_kwh or 0.5 * self.capacity_kwh
+        self.history = []
+        for k, v in defaults.items():
+            self.basic_data_set.setdefault(k, v)
+            setattr(self, k, self.basic_data_set[k])
+
+    def _r0_losses(self, power_kw, dt_h):
+        """Berechne I²R₀-Verlust (kWh) für gegebene Leistung und Dauer."""
+        if self.r0_ohm <= 0 or self.u_nom <= 0 or power_kw == 0:
+            return 0.0
+        p_w = abs(power_kw) * 1000.0
+        i = p_w / self.u_nom               # A
+        p_loss_w = (i ** 2) * self.r0_ohm  # W
+        return (p_loss_w * dt_h) / 1000.0  # in kWh
+
+    def init_inport_export_modelling(self, **kwargs):
+        if "exporting" in kwargs:
+            self._exporting = kwargs.get("exporting", None)
+        else:
+            raise ValueError('"exporting" missing')
+
+    def balancing(self, current_storage, capacity, requested_charge, power_per_step, **kwargs):
+        dt_h = kwargs.get("dt_h", 1.0)
+        i = kwargs.get("i", 0)
+        if i > 175:
+            pass
+        inflow = outflow = residual = exflow = loss = 0.0
+        self._exporting[i] = False
+
+        def f(requested, limit):
+            """
+            Konkave Sättigungskurve
+            - f(df_min) = 0
+            - f(1) = 1
+            - f'(df_min) = hoch (steil am Anfang)
+            - f'(1) = 0 (flach am Ende)
+            """
+            # if sub > 0:
+            #     return sub
+            # return 1 - (1 - u) ** df
+            return min(abs(requested), limit)
+        
+        # good for all 20 MWh, best for >> 20 MWh
+        # df, df_min, sub = 3, 0.7, 0.0
+        #  best for capacity <= 20 MWh, ok vor >> 20 MWh
+        # _, df_min, sub = 1.3, 0.8, 1.0
+        if requested_charge < 0: # discharge
+            # org: price > 1.3 * np.abs(avrgprice) and current_storage >= (self.min_soc + self.limit_soc_threshold) * capacity and current_storage >= -self.limit_soc_threshold:
+            # Entladen
+            # see comment above
+            allowed_energy = f(requested_charge, min(power_per_step * dt_h, current_storage - self.min_soc * capacity))
+            actual_discharge = allowed_energy # min(renew, allowed_energy)
+            if actual_discharge > 0:
+                loss = self._r0_losses(actual_discharge / dt_h, dt_h)
+                outflow = (actual_discharge - loss) * self.efficiency_discharge
+                current_storage -= (actual_discharge / self.efficiency_discharge)
+            exflow = outflow
+        # load: requested_charge > 0
+        else:
+            allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
+            actual_charge = min(requested_charge, allowed_energy)
+            if actual_charge > 0:
+                loss = self._r0_losses(actual_charge / dt_h, dt_h)
+                stored_energy = (actual_charge - loss) * self.efficiency_charge
+                inflow = stored_energy
+                current_storage += stored_energy
+
+        # Selbstentladung
+        current_storage *= (1.0 - self.battery_discharge * dt_h)
+        current_storage = max(self.min_soc * capacity, min(self.max_soc * capacity, current_storage))
+        #stor, inf, outf, resi, exf, los
+        return [current_storage, inflow, outflow, exflow, loss]
+    
