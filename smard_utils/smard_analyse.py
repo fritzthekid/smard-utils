@@ -245,7 +245,7 @@ class Analyse(BatterySimulation):
             scaler=1
             cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [€]", "fixp [€]", "sp €/kWh", "fp €/kWh"]
         capacity_l = ["no renew","no bat"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
-        residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"]]
+        residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results['residual kWh']]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"]]
         autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"]]
         spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"]]
@@ -266,7 +266,7 @@ class Analyse(BatterySimulation):
         else:
             scaler=1
             unit = "kWh"
-        print(f"total renewalbes: {(sum(self.pos)/scaler):.2f} {unit}, residual: {(res/scaler):.2f} {unit}, export: {(sum(self.data["exflow"])/scaler):.2f} {unit}")
+        print(f"total renewalbes: {(sum(self.pos)/scaler):.2f} {unit}, residual: {(res/scaler):.2f} {unit}, export: {(sum(self.data['exflow'])/scaler):.2f} {unit}")
         print(f"share with battery: {((self.my_total_demand - res)/self.my_total_demand):.2f}")
         pass
 
