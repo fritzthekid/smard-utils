@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 import sys
 import logging
-from smard_utils.battery_simulation import BatterySimulation, battery_simulation_version
+from smard_utils.battery_simulation import BatterySimulation, battery_simulation_version, BatteryManagementSystem
 from smard_utils.battery_model import BatterySolBatModel, BatteryModel
 
 
@@ -317,7 +317,7 @@ class MeineAnalyse(Analyse):
         
         self.basic_data_set = basic_data_set
         data = self.load_and_prepare_data(csv_file_path)
-        super().__init__(data, basic_data_set, battery_model=BatteryModel)
+        super().__init__(data, basic_data_set, bms=BatteryManagementSystem, battery_model=BatteryModel)
         # self.batt.battery_cond_load = battery_cond_load
         # self.batt.battery_cond_export_a = battery_cond_export_a
         # self.batt.battery_cond_export_b = battery_cond_export_b
@@ -347,14 +347,14 @@ defaults = {
 }
 """
 
-def battery_cond_load(energy_balance, discharing_factor, current_storage, max_soc, limit_soc_threshold, capacity):
-    return energy_balance > 0
+# def battery_cond_load(energy_balance, discharing_factor, current_storage, max_soc, limit_soc_threshold, capacity):
+#     return energy_balance > 0
 
-def battery_cond_export_a(energy_balance, discharing_factor, df_min, current_storage, min_soc, limit_soc_threshold, capacity):
-    return energy_balance > 0
+# def battery_cond_export_a(energy_balance, discharing_factor, df_min, current_storage, min_soc, limit_soc_threshold, capacity):
+#     return energy_balance > 0
 
-def battery_cond_export_b(energy_balance, price, control_exflow):
-    return energy_balance > 0
+# def battery_cond_export_b(energy_balance, price, control_exflow):
+#     return energy_balance > 0
     
 
 

@@ -5,7 +5,7 @@ import os
 import sys
 import logging
 from smard_utils.smard_analyse import Analyse, logger, root_dir
-from smard_utils.battery_simulation import BatteryModel, battery_simulation_version
+from smard_utils.battery_simulation import BatteryManagementSystem, battery_simulation_version
 from smard_utils.battery_model import BatterySolBatModel
 
 DEBUG = False
@@ -26,7 +26,9 @@ class SolBatSys(Analyse):
         self.basic_data_set = basic_data_set
         battery_results_pattern = [-1,0,1,0,0,-1]
         data = self.load_and_prepare_data(csv_file_path)
-        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, battery_model=BatterySolBatModel)
+        super().__init__(data, basic_data_set, battery_results_pattern=battery_results_pattern, 
+                         battery_management_system = BatteryManagementSystem,
+                         battery_model=BatterySolBatModel)
 
     def load_and_prepare_data(self, csv_file_path):
         """Load and prepare SMARD data"""
