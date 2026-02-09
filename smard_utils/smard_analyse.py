@@ -223,9 +223,9 @@ class Analyse(BatterySimulation):
 
 
     def print_results(self):
-        print(f"reference region: {self.region}, demand: {(sum(self.data["total_demand"])/1000):.2f} GWh, solar: {(sum(self.data['solar'])/1000):.2f} GWh, wind {(sum(self.data["wind_onshore"])/1000):.2f} GWh")
-        print(f"total demand: {(sum(self.data["my_demand"])/1e3):.2f} MWh " +
-              f"total Renewable_Source: {(sum(self.data["my_renew"])/1e3):.2f} MWh")
+        print(f"reference region: {self.region}, demand: {(sum(self.data['total_demand'])/1000):.2f} GWh, solar: {(sum(self.data['solar'])/1000):.2f} GWh, wind {(sum(self.data['wind_onshore'])/1000):.2f} GWh")
+        print(f"total demand: {(sum(self.data['my_demand'])/1e3):.2f} MWh " +
+              f"total Renewable_Source: {(sum(self.data['my_renew'])/1e3):.2f} MWh")
         print(f"total renewalbes: {(sum(self.pos)/1000):.2f} MWh, residual: {(sum(self.neg)/1000):.2f} MWh")
         if self.my_total_demand == 0.0:
             print(f"share without battery 0.0")
