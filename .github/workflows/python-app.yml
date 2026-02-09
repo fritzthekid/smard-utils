@@ -34,6 +34,20 @@ jobs:
         # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
+    - name: Clean coverage
+      run: rm -rf .coverage coverage_html
+    - name: coverage
       run: |
-        pytest
+        # pip install -e .
+        # pytest -v --cov=mastr_utils --cov-report=term-missing --cov-report=html
+        pytest -v \
+          --cov=mastr_utils \
+          --cov-report=term-missing \
+          --cov-report=html:coverage_html \
+          --cov-config=.coveragerc
+
+    - name: Upload coverage HTML report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage_html
+        path: coverage_html/
