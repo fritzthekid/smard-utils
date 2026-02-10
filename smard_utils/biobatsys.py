@@ -258,7 +258,7 @@ class BioBatSys(Analyse):
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
         # autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"][1:]]
         # spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [\N{euro sign}]"][1:]]
-        revenue_l = [f"{(self.battery_results["revenue [\N{euro sign}]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        revenue_l = [f"{(self.battery_results['revenue [\N{euro sign}]'][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
         revenue_gain = [f"nn"] + [f"{((r-rev1+flex_add)/scaler):.2f}" for r in self.battery_results["revenue [\N{euro sign}]"][2:]]
         capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1+flex_add)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
         values = np.array([capacity_l, exflowl, revenue_l, revenue_gain, capacity_costs]).T
