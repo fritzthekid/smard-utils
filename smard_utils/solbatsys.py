@@ -87,7 +87,7 @@ basic_data_set = {
 def main(argv = {}):
     """Main function"""
     if "region" in argv:
-        region = f"_{argv["region"]}"
+        region = f"_{argv['region']}"
     else:
         region = "_de"
     data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
