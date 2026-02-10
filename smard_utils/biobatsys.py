@@ -227,7 +227,7 @@ class BioBatSys(Analyse):
             exflow = renew
         else:
             self.exporting[i] = False
-        revenue_l = [f"{(self.battery_results['revenue [\N{euro sign}]'].iloc[1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        # revenue_l = [f"{(self.battery_results['revenue [\N{euro sign}]'].iloc[1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
         
         return [current_storage, inflow, outflow, residual, exflow]
 
