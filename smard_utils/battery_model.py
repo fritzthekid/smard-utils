@@ -1,4 +1,6 @@
 
+#!
+# -*- coding: utf-8 -*-
 # bat_model_extended.py
 import numpy as np
 
