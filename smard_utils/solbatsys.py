@@ -36,24 +36,24 @@ class SolBatSys(Analyse):
         return df
 
     def print_battery_results(self):
-        # revenue: (603.80 T€, 651.74 T€) for (True,price >= 0)
+        # revenue: (603.80 T\N{euro sign}, 651.74 T\N{euro sign}) for (True,price >= 0)
         # time: (8904.0 h, 8176.0 h) for (True, price >= 0)
         # exflow: (13449.55 MWh, 10055.49 MWh) for (True, price >= 0)
         rev0 = (self.data["price_per_kwh"]*self.data["my_renew"]).sum()
         exf0 = self.data["my_renew"].sum()
         texp0 = len(self.data["my_renew"])*self.resolution
-        rev1 = self.battery_results["revenue [€]"].iloc[2]
+        rev1 = self.battery_results["revenue [\N{euro sign}]"].iloc[2]
         if abs(self.data["my_renew"].sum())/1000 > 1000:
             scaler=1000
-            cols = ["cap MWh","exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh"]
+            cols = ["cap MWh","exfl MWh", "export [h]", "rev [T\N{euro sign}]", "revadd [T\N{euro sign}]", "rev \N{euro sign}/kWh"]
         else:
             scaler=1
-            cols = ["cap kWh","exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh"]
+            cols = ["cap kWh","exfl kWh", "export [h]", "rev [\N{euro sign}]", "revadd [\N{euro sign}]", "rev \N{euro sign}/kWh"]
         capacity_l = ["always"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
         exflowl = [f"{(exf0/scaler):.1f}"] + [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][2:]]
-        revenue_l = [f"{(rev0/scaler):.1f}"]+[f"{((f)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_gain = [f"{((rev0-rev1)/scaler):.2f}"] + [f"{((r-rev1)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
-        capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [€]"][3:],self.battery_results["capacity kWh"][3:])]
+        revenue_l = [f"{(rev0/scaler):.1f}"]+[f"{((f)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        revenue_gain = [f"{((rev0-rev1)/scaler):.2f}"] + [f"{((r-rev1)/scaler):.2f}" for r in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
         expo_l = [f"{int(texp0)}"] + [f"{int(e[1]*self.resolution)}" for e in self.exporting_l]
         values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs]).T
 

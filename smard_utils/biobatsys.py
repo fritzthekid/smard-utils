@@ -227,17 +227,17 @@ class BioBatSys(Analyse):
             exflow = renew
         else:
             self.exporting[i] = False
-        revenue_l = [f"{(self.battery_results["revenue [€]"].iloc[1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
+        revenue_l = [f"{(self.battery_results["revenue [\N{euro sign}]"].iloc[1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
         
         return [current_storage, inflow, outflow, residual, exflow]
 
     def print_battery_results(self):
         flex_add = self.basic_data_set["constant_biogas_kw"] * self.basic_data_set["flex_add_per_kwh"]
         # print(self.battery_results)
-        sp0 = self.battery_results["spot price [€]"].iloc[1]
-        fp0 = self.battery_results["fix price [€]"].iloc[1]
-        # rev0 = self.battery_results["revenue [€]"].iloc[1]
-        rev1 = self.battery_results["revenue [€]"].iloc[1]
+        sp0 = self.battery_results["spot price [\N{euro sign}]"].iloc[1]
+        fp0 = self.battery_results["fix price [\N{euro sign}]"].iloc[1]
+        # rev0 = self.battery_results["revenue [\N{euro sign}]"].iloc[1]
+        rev1 = self.battery_results["revenue [\N{euro sign}]"].iloc[1]
         # basval=(self.data["my_renew"]*0+self.basic_data_set["constant_biogas_kw"]*self.resolution)/self.basic_data_set["flex_factor"]
         # rev1 = (basval*self.data["price_per_kwh"]).sum()
         is_exporting =int(self.exporting_l[1][1])
@@ -246,10 +246,10 @@ class BioBatSys(Analyse):
         #not_exporting = sum(1 for e in self.exporting if not e)
         if abs(self.data["my_renew"].sum())/1000 > 1000:
             scaler=1000
-            cols = ["cap MWh","exfl MWh", "rev [T€]", "revadd [T€]", "rev €/kWh"]
+            cols = ["cap MWh","exfl MWh", "rev [T\N{euro sign}]", "revadd [T\N{euro sign}]", "rev \N{euro sign}/kWh"]
         else:
             scaler=1
-            cols = ["cap kWh","exfl kWh", "rev [€]", "revadd [€]", "rev €/kWh"]
+            cols = ["cap kWh","exfl kWh", "rev [\N{euro sign}]", "revadd [\N{euro sign}]", "rev \N{euro sign}/kWh"]
         # [f"{(e0*self.resolution,e1*self.resolution)}" for (e0,e1) in self.exporting_l[1:]]
         # assert len(set(d for d in self.exporting_l[1:])) == 1, f"not all deviables == {self.exporting_l[1]}"
         print(f"exporting {self.exporting_l[1][1]*self.resolution} hours but not {self.exporting_l[1][0]*self.resolution} hours")
@@ -257,10 +257,10 @@ class BioBatSys(Analyse):
         # residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"][1:]]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
         # autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"][1:]]
-        # spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"][1:]]
-        revenue_l = [f"{(self.battery_results["revenue [€]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]]
-        revenue_gain = [f"nn"] + [f"{((r-rev1+flex_add)/scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]]
-        capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1+flex_add)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [€]"][3:],self.battery_results["capacity kWh"][3:])]
+        # spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [\N{euro sign}]"][1:]]
+        revenue_l = [f"{(self.battery_results["revenue [\N{euro sign}]"][1]/scaler):.1f}"]+[f"{((f+flex_add)/scaler):.1f}" for f in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        revenue_gain = [f"nn"] + [f"{((r-rev1+flex_add)/scaler):.2f}" for r in self.battery_results["revenue [\N{euro sign}]"][2:]]
+        capacity_costs = [f"{0:.2f}",f"{0:.2f}"] + [f"{((r-rev1+flex_add)/max(1e-10,c)):.2f}" for r,c in zip(self.battery_results["revenue [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
         values = np.array([capacity_l, exflowl, revenue_l, revenue_gain, capacity_costs]).T
 
         battery_results_norm = pd.DataFrame(values,

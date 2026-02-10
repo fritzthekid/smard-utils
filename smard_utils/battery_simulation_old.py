@@ -79,7 +79,7 @@ class BatterySimulation:
         Simuliere Batterie (Kapazität in kWh, power in kW pro Stunde).
         Erwartet:
           self.data["my_renew"], self.data["my_demand"], self.data["price_per_kwh"], self.data["avrgprice"]
-          self.costs_per_kwh (€/kWh)
+          self.costs_per_kwh (\N{euro sign}/kWh)
         Ergebnis: füllt self.data mit battery_storage/residual/exflow und aktualisiert self.battery_results
         """
         if not hasattr(self, "sim_count"):
@@ -99,8 +99,8 @@ class BatterySimulation:
         n = len(self.data["my_renew"])
         renew = np.array(self.data["my_renew"], dtype=float)
         demand = np.array(self.data["my_demand"], dtype=float)
-        price = np.array(self.data["price_per_kwh"], dtype=float)   # €/kWh
-        avrgprice = np.array(self.data["avrgprice"], dtype=float)   # €/kWh
+        price = np.array(self.data["price_per_kwh"], dtype=float)   # \N{euro sign}/kWh
+        avrgprice = np.array(self.data["avrgprice"], dtype=float)   # \N{euro sign}/kWh
 
         storage_levels = np.zeros(n, dtype=float)
         residuals = np.zeros(n, dtype=float)
@@ -147,11 +147,11 @@ class BatterySimulation:
         total_demand_kwh = demand.sum()
         autarky_rate = 1.0 - (residuals.sum() / total_demand_kwh) if total_demand_kwh > 0 else 1.0
 
-        # Preise: Preisfelder sind €/kWh; resultate in Euro
+        # Preise: Preisfelder sind \N{euro sign}/kWh; resultate in Euro
         spot_total_eur = float((residuals * price).sum())      # Euro
         fix_total_eur = float(residuals.sum() * self.costs_per_kwh)  # Euro
 
-        # Für Ausgabe in T€ (tausend €)
+        # Für Ausgabe in T\N{euro sign} (tausend \N{euro sign})
         spot_tk = spot_total_eur
         fix_tk = fix_total_eur
         revenue_tk = float((exflows * price).sum())
@@ -164,7 +164,7 @@ class BatterySimulation:
             spot_tk,
             fix_tk,
             revenue_tk,
-        ]], columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [€]", "fix price [€]", "revenue [€]"])
+        ]], columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [\N{euro sign}]", "fix price [\N{euro sign}]", "revenue [\N{euro sign}]"])
 
         if getattr(self, "battery_results", None) is None:
             self.battery_results = results

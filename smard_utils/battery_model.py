@@ -319,7 +319,7 @@ class BatterySolBatModel(BatteryModel):
         energy_balance = renew - demand   # positiv = Überschuss, negativ = Bedarf
         discharing_factor = self.discharging_factor(self._data.index[i], dt_h)
 
-        # revenue: (603.80 T€, 651.74 T€) for (True,price >= 0)
+        # revenue: (603.80 T\N{euro sign}, 651.74 T\N{euro sign}) for (True,price >= 0)
         # time: (8904.0 h, 8176.0 h) for (True, price >= 0)
         # exflow: (13449.55 MWh, 10055.49 MWh) for (True, price >= 0)
 

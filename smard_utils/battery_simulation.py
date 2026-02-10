@@ -133,8 +133,8 @@ class BatterySimulation:
         ]],
             columns=[
                 "capacity kWh", "residual kWh", "exflow kWh",
-                "autarky rate", "spot price [€]",
-                "fix price [€]", "revenue [€]", "loss kWh"
+                "autarky rate", "spot price [\N{euro sign}]",
+                "fix price [\N{euro sign}]", "revenue [\N{euro sign}]", "loss kWh"
             ])
         self.battery_results = pd.concat([self.battery_results, result], ignore_index=True) if self.battery_results is not None else result
         # l = self.give_dark_time(1200.0, capacity)
