@@ -13,6 +13,7 @@ from smard_utils.solbatsys import main as solbatsys_main
 from smard_utils.senec_analyes import main as senec_main
 from smard_utils.biobatsys_new import main as biobatsys_new_main
 from smard_utils.solbatsys_new import main as solbatsys_new_main
+from smard_utils.smard_analyse_new import main as smart_new_main
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,4 +39,7 @@ def test_biosatsys_new_main():
 
 def test_solbatsys_new_main():
     solbatsys_new_main({"pytest_path":f"{test_dir}/tmp"})
+
+def test_smart_new_main():
+    smart_new_main({"pytest_path":f"{test_dir}/tmp"})
 
