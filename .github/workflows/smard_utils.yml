@@ -37,7 +37,7 @@ jobs:
       run: rm -rf .coverage coverage_html
     - name: tests with coverage
       run: |
-        # pip install -e .
+        pip install -e .
         pytest -v \
           --cov=smard_utils \
           --cov-report=term-missing \
