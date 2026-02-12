@@ -91,6 +91,11 @@ class Battery:
         delivered_energy = 0.0
         loss = 0.0
 
+        # Clamp to power limit
+        max_energy = self.p_max_kw * dt_h
+        charge_kwh = min(charge_kwh, max_energy)
+        discharge_kwh = min(discharge_kwh, max_energy)
+
         if charge_kwh > 0:
             # Charging
             loss = self._calculate_i2r_loss(charge_kwh / dt_h, dt_h)

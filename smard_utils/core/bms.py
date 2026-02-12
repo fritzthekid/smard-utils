@@ -183,7 +183,8 @@ class BatteryManagementSystem:
             export_amount = 0
 
         # Calculate residual demand (unmet demand)
-        residual_kwh = max(0.0, demand - renew - result['net_discharge'])
+        # demand can be negative (convention: consumption is negative)
+        residual_kwh = max(0.0, abs(demand) - renew - result['net_discharge'])
 
         return {
             **result,

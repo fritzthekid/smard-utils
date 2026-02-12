@@ -42,7 +42,7 @@ class BiogasDriver(EnergyDriver):
         df = pd.read_csv(csv_file_path, sep=';', decimal=',')
 
         # Create datetime column
-        df['DateTime_x'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'])
+        df['DateTime_x'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], dayfirst=True, format='mixed')
 
         # Remove holes from data
         df = remove_holes_from_data(df)
@@ -71,6 +71,10 @@ class BiogasDriver(EnergyDriver):
                 column_mapping[col] = 'total_demand'
 
         df = df.rename(columns=column_mapping)
+
+        # Ensure energy columns are numeric (handles both '.' and ',' decimals)
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
         # Calculate resolution
         self.resolution = ((df.index[1] - df.index[0]).seconds) / 3600

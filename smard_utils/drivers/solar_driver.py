@@ -38,7 +38,7 @@ class SolarDriver(EnergyDriver):
         df = pd.read_csv(csv_file_path, sep=';', decimal=',')
 
         # Create datetime column
-        df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'])
+        df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], dayfirst=True, format='mixed')
         df = df.set_index('DateTime')
 
         # Remove non-energy columns
@@ -64,6 +64,10 @@ class SolarDriver(EnergyDriver):
                 column_mapping[col] = 'total_demand'
 
         df = df.rename(columns=column_mapping)
+
+        # Ensure energy columns are numeric (handles both '.' and ',' decimals)
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
         # Calculate resolution
         self.resolution = ((df.index[1] - df.index[0]).seconds) / 3600

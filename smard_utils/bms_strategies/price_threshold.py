@@ -60,7 +60,7 @@ class PriceThresholdStrategy(BMSStrategy):
         price = context['price']
         avg_price = context['avg_price']
         # BioBat uses same load_threshold for both charge and discharge
-        return price > self.load_threshold * abs(avg_price)
+        return price >= self.load_threshold * abs(avg_price)
 
     def should_export(self, context: dict) -> bool:
         """

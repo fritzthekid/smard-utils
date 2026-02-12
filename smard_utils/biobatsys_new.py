@@ -166,8 +166,8 @@ class BioBatSys:
         if len(self.exporting_l) > 1:
             print(f"exporting {self.exporting_l[1][1] * self.resolution} hours but not {self.exporting_l[1][0] * self.resolution} hours")
 
-        # Format results (include row 1 which is the no-battery baseline)
-        capacity_l = ["no rule"] + [f"{(c / scaler)}" for c in self.battery_results["capacity kWh"][1:]]
+        # Format results (matches original: skip marker row 0, start from row 1)
+        capacity_l = ["no rule"] + [f"{(c / scaler)}" for c in self.battery_results["capacity kWh"][2:]]
 
         exflowl = [f"{(e / scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
 
@@ -183,7 +183,7 @@ class BioBatSys:
 
         capacity_costs = [f"{0:.2f}"] + [f"{0:.2f}"] + [
             f"{((r - rev1 + flex_add) / max(1e-10, c)):.2f}"
-            for r, c in zip(self.battery_results["revenue [€]"][2:], self.battery_results["capacity kWh"][2:])
+            for r, c in zip(self.battery_results["revenue [€]"][3:], self.battery_results["capacity kWh"][3:])
         ]
 
         values = np.array([capacity_l, exflowl, revenue_l, revenue_gain, capacity_costs]).T

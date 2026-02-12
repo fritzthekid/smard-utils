@@ -38,8 +38,9 @@ class BatteryAnalytics:
 
         if self.basic_data_set.get("fix_contract", False) or year is None:
             # Fixed price contract
-            self.driver._data["price_per_kwh"] = self.costs_per_kwh
-            self.driver._data["avrgprice"] = self.costs_per_kwh
+            marketing_costs = self.basic_data_set.get("marketing_costs", 0.0)
+            self.driver._data["price_per_kwh"] = self.costs_per_kwh + marketing_costs
+            self.driver._data["avrgprice"] = self.costs_per_kwh + marketing_costs
         else:
             # Load hourly spot prices
             path = f"{root_dir}/costs"
@@ -153,8 +154,8 @@ class BatteryAnalytics:
         if len(df) < 2:
             return df
 
-        # Baseline is typically row 1 (no battery)
-        baseline_revenue = df.iloc[1]['revenue_eur']
+        # Baseline is row 0 (no battery / zero capacity)
+        baseline_revenue = df.iloc[0]['revenue_eur']
 
         df['revenue_gain'] = df['revenue_eur'] - baseline_revenue
         df['eur_per_kwh'] = df['revenue_gain'] / df['capacity_kwh'].replace(0, np.nan)

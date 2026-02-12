@@ -25,7 +25,7 @@ class SenecDriver(EnergyDriver):
         """
         print("Loading SENEC home battery data...")
 
-        df = pd.read_csv(csv_file_path)
+        df = pd.read_csv(csv_file_path, sep=';')
 
         # Column mapping for SENEC format
         column_mapping = {}
