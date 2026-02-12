@@ -19,7 +19,7 @@ class MockDriver(EnergyDriver):
         self.resolution = 1.0
 
     def load_data(self, data_source):
-        dates = pd.date_range('2024-01-01', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01', periods=24, freq='h')
         self._data = pd.DataFrame({
             'my_renew': np.ones(24) * 100,
             'my_demand': np.ones(24) * 80,

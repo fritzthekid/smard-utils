@@ -206,7 +206,7 @@ class TestDynamicDischargeStrategy:
         """Test price array setup with data."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01', periods=24, freq='h')
         data = pd.DataFrame({
             'price_per_kwh': np.linspace(0.05, 0.20, 24)
         }, index=dates)
@@ -221,7 +221,7 @@ class TestDynamicDischargeStrategy:
         strategy = DynamicDischargeStrategy({})
 
         # Create price data with clear pattern: low at night, high at day
-        dates = pd.date_range('2024-01-01', periods=48, freq='H')
+        dates = pd.date_range('2024-01-01', periods=48, freq='h')
         prices = []
         for i in range(48):
             hour = i % 24
@@ -248,7 +248,7 @@ class TestDynamicDischargeStrategy:
         """Test discharge factor retrieval."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
         data = pd.DataFrame({'price_per_kwh': np.linspace(0.05, 0.20, 24)}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
@@ -290,7 +290,7 @@ class TestDynamicDischargeStrategy:
         """Test charging when discharge factor is negative."""
         strategy = DynamicDischargeStrategy({"max_soc": 0.95})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
         # Night hours cheap -> negative factor
         prices = [0.08] * 12 + [0.15] * 12
         data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
@@ -311,7 +311,7 @@ class TestDynamicDischargeStrategy:
         """Test discharging when discharge factor is high."""
         strategy = DynamicDischargeStrategy({"min_soc": 0.05})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
         # Day hours expensive -> positive factor
         prices = [0.08] * 12 + [0.20] * 12
         data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
@@ -370,7 +370,7 @@ class TestDynamicDischargeStrategy:
         """Test discharge amount uses saturation curve."""
         strategy = DynamicDischargeStrategy({"min_soc": 0.05})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
         prices = [0.08] * 12 + [0.20] * 12
         data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
 
@@ -399,7 +399,7 @@ class TestDynamicDischargeStrategy:
         """Test price array updates daily at 13:00."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=72, freq='H')
+        dates = pd.date_range('2024-01-01 00:00', periods=72, freq='h')
         prices = np.random.uniform(0.08, 0.20, 72)
         data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
 

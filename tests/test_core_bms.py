@@ -44,7 +44,7 @@ class MockDriver(EnergyDriver):
 
     def load_data(self, data_source):
         # Create simple test data
-        dates = pd.date_range('2024-01-01', periods=24, freq='H')
+        dates = pd.date_range('2024-01-01', periods=24, freq='h')
         self._data = pd.DataFrame({
             'my_renew': np.ones(24) * 100,  # 100 kWh renewable each hour
             'my_demand': np.zeros(24),  # No demand

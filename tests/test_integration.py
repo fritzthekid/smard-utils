@@ -23,7 +23,7 @@ from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrateg
 def smard_csv_file():
     """Create a comprehensive SMARD CSV file for integration testing."""
     # 7 days of data with realistic patterns
-    dates = pd.date_range('2024-01-01', periods=168, freq='H')
+    dates = pd.date_range('2024-01-01', periods=168, freq='h')
 
     biomass = np.ones(168) * 500
     hydro = np.ones(168) * 300
@@ -65,7 +65,7 @@ def smard_csv_file():
 @pytest.fixture
 def price_csv_file():
     """Create a price CSV file for integration testing."""
-    dates = pd.date_range('2024-01-01', periods=8760, freq='H')
+    dates = pd.date_range('2024-01-01', periods=8760, freq='h')
 
     # Realistic price pattern: low at night, high during day
     prices = []

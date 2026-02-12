@@ -189,7 +189,7 @@ class BatterySimulation:
 # === Testlauf mit einfacher Zeitreihe ===
 if __name__ == "__main__":
     import pandas as pd, numpy as np
-    hours = pd.date_range("2025-01-01", periods=10, freq="H")
+    hours = pd.date_range("2025-01-01", periods=10, freq="h")
     data = pd.DataFrame({
         "my_renew": np.linspace(500, 1500, 10),
         "my_demand": np.linspace(1000, 800, 10),
