@@ -24,6 +24,7 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "flask",
+    "requests",
 ]
 
 [project.optional-dependencies]
