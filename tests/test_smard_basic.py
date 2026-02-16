@@ -2,6 +2,8 @@ import os
 import sys
 import re
 import pytest
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/..")
@@ -22,16 +24,16 @@ def test_basic():
 # def test_smart_main():
 #     smart_main({"pytest_path":f"{test_dir}/tmp"})
 
-def test_biosatsys_main():
-    biobatsys_main({"pytest_path":f"{test_dir}/tmp"})
+def test_biobatsys_main():
+    biobatsys_main([])
 
 def test_solbatsys_main():
-    solbatsys_main({"pytest_path":f"{test_dir}/tmp"})
+    solbatsys_main([])
 
 def test_senec_main():
-    senec_main({"pytest_path":f"{test_dir}/tmp"})
-    senec_main({"pytest_path":f"{test_dir}/tmp","file_path":f"{test_dir}/../data/senec_data/2020-combine.csv"})
+    senec_main([])
+    senec_main(['-d', f"{test_dir}/../data/senec_data/2020-combine.csv"])
 
 def test_community_main():
-    community_main({"pytest_path":f"{test_dir}/tmp"})
+    community_main([])
 
