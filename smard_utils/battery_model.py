@@ -1,6 +1,17 @@
 
+#!
+# -*- coding: utf-8 -*-
 # bat_model_extended.py
 import numpy as np
+
+from enum import Enum
+
+# Einfaches Enum
+class Balance(Enum):
+    NONE = 0
+    LOAD = 1
+    UNLOAD = 2
+    EXPORT = 3
 
 class BatteryModel:
     def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
@@ -38,26 +49,26 @@ class BatteryModel:
         p_loss_w = (i ** 2) * self.r0_ohm  # W
         return (p_loss_w * dt_h) / 1000.0  # in kWh
 
-    # def setup_discharging_factor(self, i, dt_h):
-    #     price_per_kwh = self._data["price_per_kwh"]
-    #     rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
-    #     vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j]) for j in range(i,i+rest_len)]
-    #     vals_set = []
-    #     vals_indices = []
-    #     for val in vals:
-    #         if val[0] not in vals_indices:
-    #             vals_set.append(val)
-    #             vals_indices.append(val[0])
-    #     assert len(vals_set) < 25, f"vals_set largen than 24: {len(vals_set)}"
-    #     vals = sorted(vals_set, key=lambda x: x[1])
-    #     nvals = np.ones(24)*12
-    #     for i,v in enumerate(vals):
-    #         nvals[v[0]] = i
-    #     if max(nvals)-min(nvals) < 0.001:
-    #         self.price_array = np.zeros(24)
-    #     else:
-    #         self.price_array=((nvals-min(nvals))/(max(nvals)-min(nvals))*2)-1
-    #     return
+    def setup_discharging_factor(self, i, dt_h):
+        price_per_kwh = self._data["price_per_kwh"]
+        rest_len = min(int(24/dt_h), len(price_per_kwh.index)-i)
+        vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j]) for j in range(i,i+rest_len)]
+        vals_set = []
+        vals_indices = []
+        for val in vals:
+            if val[0] not in vals_indices:
+                vals_set.append(val)
+                vals_indices.append(val[0])
+        assert len(vals_set) < 25, f"vals_set largen than 24: {len(vals_set)}"
+        vals = sorted(vals_set, key=lambda x: x[1])
+        nvals = np.ones(24)*12
+        for i,v in enumerate(vals):
+            nvals[v[0]] = i
+        if max(nvals)-min(nvals) < 0.001:
+            self.price_array = np.zeros(24)
+        else:
+            self.price_array=((nvals-min(nvals))/(max(nvals)-min(nvals))*2)-1
+        return
 
     def discharging_factor(self, tact, dt_h):
         return (self.price_array[tact.hour])
@@ -78,24 +89,48 @@ class BatteryModel:
     def data(self, value):
         self._data = value
 
-    def battery_cond_load(self,energy_balance):
-        return energy_balance > 0
+    # def battery_cond_load(self,energy_balance):
+    #     return energy_balance > 0
 
-    def battery_cond_discharge(self,energy_balance):
-        return energy_balance < 0
+    # def battery_cond_discharge(self,energy_balance):
+    #     return energy_balance < 0
 
 
-    def loading_strategie(self, renew, demand, current_storage, capacity, avrgprice, price, power_per_step, **kwargs):
+    def loading_strategie(self, renew=0, demand=0, current_storage=0, capacity=0, power_per_step=0, **kwargs):
         dt_h = kwargs.get("dt_h", 1.0)
-        inflow = outflow = residual = exflow = loss = 0.0
+        i = kwargs.get("i", 0)
+        strategy = kwargs.get("strategy", Balance.NONE)
+        inflow = outflow = residual = exflow = _exflow = loss = 0.0
+        self._exporting[i] = False
 
         energy_balance = renew - demand   # positiv = Überschuss, negativ = Bedarf
+        discharing_factor = self.discharging_factor(self._data.index[i], dt_h)
 
         # Default actuals
         actual_charge = 0.0
         actual_discharge = 0.0
 
-        if self.battery_cond_load(energy_balance):
+        # value to discharge 
+        def f(x, df, df_min,sub):
+            """
+            Konkave Sättigungskurve
+            - f(df_min) = 0
+            - f(1) = 1
+            - f'(df_min) = hoch (steil am Anfang)
+            - f'(1) = 0 (flach am Ende)
+            """
+            if sub > 0:
+                return sub
+            u = (x - df_min) / (1 - df_min)
+            return 1 - (1 - u) ** df
+
+        # good for all 20 MWh, best for >> 20 MWh
+        df, df_min, sub = 3, 0.7, 0.0
+        #  best for capacity <= 20 MWh, ok vor >> 20 MWh
+        # _, df_min, sub = 1.3, 0.8, 1.0
+
+        # if self.battery_cond_load(energy_balance):
+        if strategy == Balance.LOAD:
             # Laden aus Überschuss
             allowed_energy = min(power_per_step * dt_h, (self.max_soc * capacity) - current_storage)
             actual_charge = min(energy_balance, allowed_energy)  # kWh aus Überschuss, bevor Verluste
@@ -105,16 +140,20 @@ class BatteryModel:
                 inflow = stored_energy
                 current_storage += stored_energy
             # exflow = überschüssige Energie, die nicht geladen wurde (immer setzen)
-            exflow = energy_balance - actual_charge
+            _exflow = energy_balance - actual_charge
 
-        elif self.battery_cond_discharge(energy_balance):
+        # elif self.battery_cond_discharge(energy_balance):
+        elif strategy == Balance.UNLOAD:
             # Entladen zur Bedarfsdeckung (oder Verkauf wenn gewünscht)
             needed = abs(energy_balance)
+            if needed != - energy_balance:
+                raise ValueError("Something strange with model")
             # Obergrenze der entnehmbaren Energie in einem Zeitschritt Δt fest — 
             # also die maximale Energiemenge, die die Batterie in dieser Stunde
             #  (oder Zeitschrittlänge dt_h) abgeben darf, ohne physikalische oder
             #  betriebliche Grenzen zu verletzen.
-            allowed_energy = min(power_per_step * dt_h, max(0.0, current_storage - self.min_soc * capacity))
+            # allowed_energy = min(power_per_step * dt_h, max(0.0, current_storage - self.min_soc * capacity))
+            allowed_energy = f(discharing_factor, df, df_min, sub)*min(power_per_step * dt_h, current_storage - self.min_soc * capacity)
             # Wähle candidate so, dass netto möglichst den Bedarf trifft (einfacher Ansatz)
             # candidate ist Energie, die aus dem Speicher entnommen wird (kWh)
             candidate = min(allowed_energy, needed / max(self.efficiency_discharge, 1e-9))
@@ -125,6 +164,12 @@ class BatteryModel:
                 actual_discharge = candidate
                 current_storage -= actual_discharge
             residual = needed - outflow
+        elif strategy == Balance.EXPORT:
+            _exflow = max(0,energy_balance)
+
+        if _exflow > 0:
+            exflow = _exflow
+            self.exporting[i] = True
 
         # Selbstentladung und clamp
         current_storage *= (1.0 - self.battery_discharge * dt_h)
@@ -133,27 +178,27 @@ class BatteryModel:
         # Rückgabe: jetzt konsistent 6 Werte (inkl. loss)
         return [current_storage, inflow, outflow, residual, exflow, loss]
 
-    def step(self, renew, demand, price, avrgprice, power_per_step=None, dt_h=1.0):
-        power_per_step = power_per_step or self.p_max_kw
-        # unpack 6 Werte (inkl. loss)
-        new_storage, inflow, outflow, residual, exflow, loss = self.loading_strategie(
-            renew, demand, self.current_storage, self.capacity_kwh,
-            avrgprice, price, power_per_step, dt_h=dt_h
-        )
-        self.current_storage = new_storage
-        rec = dict(
-            storage_kwh=self.current_storage,
-            soc=self.soc(),
-            inflow_kwh=inflow,
-            outflow_kwh=outflow,
-            residual_kwh=residual,
-            exflow_kwh=exflow,
-            loss_kwh=loss,
-            price=price,
-            avrgprice=avrgprice
-        )
-        self.history.append(rec)
-        return rec
+    # def step(self, renew, demand, price, avrgprice, power_per_step=None, dt_h=1.0):
+    #     power_per_step = power_per_step or self.p_max_kw
+    #     # unpack 6 Werte (inkl. loss)
+    #     new_storage, inflow, outflow, residual, exflow, loss = self.loading_strategie(
+    #         renew, demand, self.current_storage, self.capacity_kwh,
+    #         avrgprice, price, power_per_step, dt_h=dt_h
+    #     )
+    #     self.current_storage = new_storage
+    #     rec = dict(
+    #         storage_kwh=self.current_storage,
+    #         soc=self.soc(),
+    #         inflow_kwh=inflow,
+    #         outflow_kwh=outflow,
+    #         residual_kwh=residual,
+    #         exflow_kwh=exflow,
+    #         loss_kwh=loss,
+    #         price=price,
+    #         avrgprice=avrgprice
+    #     )
+    #     self.history.append(rec)
+    #     return rec
 
 class BatterySourceModel(BatteryModel):
     def __init__(self, basic_data_set=None, capacity_kwh=2000.0, p_max_kw=None, 
@@ -276,7 +321,7 @@ class BatterySolBatModel(BatteryModel):
         energy_balance = renew - demand   # positiv = Überschuss, negativ = Bedarf
         discharing_factor = self.discharging_factor(self._data.index[i], dt_h)
 
-        # revenue: (603.80 T€, 651.74 T€) for (True,price >= 0)
+        # revenue: (603.80 T\N{euro sign}, 651.74 T\N{euro sign}) for (True,price >= 0)
         # time: (8904.0 h, 8176.0 h) for (True, price >= 0)
         # exflow: (13449.55 MWh, 10055.49 MWh) for (True, price >= 0)
 

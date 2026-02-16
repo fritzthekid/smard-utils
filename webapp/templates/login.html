@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Zugang</h2>
+<form method="post" class="login-form">
+    <input type="hidden" name="command" value="enter">
+    <!-- Honeypot: hidden from humans, bots fill it -->
+    <div style="position:absolute; left:-9999px;" aria-hidden="true">
+        <input type="text" name="website" value="" tabindex="-1" autocomplete="off">
+    </div>
+    <div class="consent-box">
+        <label for="consent">
+            <input type="checkbox" id="consent" name="consent" required>
+            Ich stimme zu, dass hochgeladene Daten fuer die Dauer der Sitzung gespeichert werden duerfen.
+        </label>
+    </div>
+    <button type="submit">Zugang</button>
+</form>
+{% endblock %}

@@ -299,8 +299,8 @@ class BatterySimuation:
         ]],
             columns=[
                 "capacity kWh", "residual kWh", "exflow kWh",
-                "autarky rate", "spot price [€]",
-                "fix price [€]", "revenue [€]", "loss kWh"
+                "autarky rate", "spot price [\N{euro sign}]",
+                "fix price [\N{euro sign}]", "revenue [\N{euro sign}]", "loss kWh"
             ])
         # self.battery_results = pd.concat([self.battery_results, result], ignore_index=True) if self.battery_results is not None else result
         # l = self.give_dark_time(1200.0, capacity)
@@ -447,22 +447,22 @@ class Analyse:
 
     def print_battery_results(self):
         # print(self.battery_results)
-        sp0 = self.battery_results["spot price [€]"].iloc[1]
-        fp0 = self.battery_results["fix price [€]"].iloc[1]
-        spotprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((sp0-s)/max(1e-10,c)):.2f}" for s,c in zip(self.battery_results["spot price [€]"][3:],self.battery_results["capacity kWh"][3:])]
-        fixprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((fp0-f)/max(1e-10,c)):.2f}" for f,c in zip(self.battery_results["fix price [€]"][3:],self.battery_results["capacity kWh"][3:])]
+        sp0 = self.battery_results["spot price [\N{euro sign}]"].iloc[1]
+        fp0 = self.battery_results["fix price [\N{euro sign}]"].iloc[1]
+        spotprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((sp0-s)/max(1e-10,c)):.2f}" for s,c in zip(self.battery_results["spot price [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
+        fixprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((fp0-f)/max(1e-10,c)):.2f}" for f,c in zip(self.battery_results["fix price [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
         if max(self.data["my_renew"].sum(),self.data["my_demand"].sum())/1000 > 1000:
             scaler=1000
-            cols = ["cap MWh","resi MWh","exfl MWh", "autarky", "spp [T€]", "fixp [T€]", "sp €/kWh", "fp €/kWh"]
+            cols = ["cap MWh","resi MWh","exfl MWh", "autarky", "spp [T\N{euro sign}]", "fixp [T\N{euro sign}]", "sp \N{euro sign}/kWh", "fp \N{euro sign}/kWh"]
         else:
             scaler=1
-            cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [€]", "fixp [€]", "sp €/kWh", "fp €/kWh"]
+            cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [\N{euro sign}]", "fixp [\N{euro sign}]", "sp \N{euro sign}/kWh", "fp \N{euro sign}/kWh"]
         capacity_l = ["no renew","no bat"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
         residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"]]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"]]
         autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"]]
-        spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"]]
-        fix_price_l = [f"{(f/scaler):.1f}" for f in self.battery_results["fix price [€]"]]
+        spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [\N{euro sign}]"]]
+        fix_price_l = [f"{(f/scaler):.1f}" for f in self.battery_results["fix price [\N{euro sign}]"]]
         values = np.array([capacity_l, residual_l, exflowl, autarky_rate_l, spot_price_l, fix_price_l, spotprice_gain, fixprice_gain]).T
 
         battery_results_norm = pd.DataFrame(values,

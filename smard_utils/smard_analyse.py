@@ -1,3 +1,5 @@
+#!
+# -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +8,7 @@ from datetime import datetime
 import os
 import sys
 import logging
-from smard_utils.battery_simulation import BatterySimulation, battery_simulation_version
+from smard_utils.battery_simulation import BatterySimulation, battery_simulation_version, BatteryManagementSystem
 from smard_utils.battery_model import BatterySolBatModel, BatteryModel
 
 
@@ -181,7 +183,7 @@ class Analyse(BatterySimulation):
         revenue = (self.exflow * self.data["price_per_kwh"]).sum()
 
         savings_no = "NN"
-        savings = f"0.00 €/MWh"
+        savings = f"0.00 \N{euro sign}/MWh"
         if self.battery_results_pattern is not None:
             no_ren = [-1,0,0,0,0,0,0]
             no_bat = [-1,0.0,(self.data["my_renew"].sum()),0.0,0.0,0.0,(self.data["my_renew"]*self.data["price_per_kwh"]).sum()]
@@ -189,9 +191,9 @@ class Analyse(BatterySimulation):
             no_ren = [-1,self.data["my_demand"].sum(),0,0,spot_price_no,fix_price_no, 0]
             no_bat = [0,sum(self.neg),sum(self.exflow),share,spot_price,fix_price, revenue]
         self.battery_results = pd.DataFrame([no_ren, no_bat],
-                                        columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [€]", "fix price [€]", "revenue [€]"])
-        # print(f"wqithout renewables fix_price: {(sum(self.data["my_demand"])*self.costs_per_kwh/100000):.2f} T€, " +
-        #       f"spot_price: {((sum(self.data["my_demand"]*self.data["price_per_kwh"])/100000)):.2f} T€")
+                                        columns=["capacity kWh","residual kWh","exflow kWh", "autarky rate", "spot price [\N{euro sign}]", "fix price [\N{euro sign}]", "revenue [\N{euro sign}]"])
+        # print(f"wqithout renewables fix_price: {(sum(self.data["my_demand"])*self.costs_per_kwh/100000):.2f} T\N{euro sign}, " +
+        #       f"spot_price: {((sum(self.data["my_demand"]*self.data["price_per_kwh"])/100000)):.2f} T\N{euro sign}")
 
         self.my_total_demand = self.data["my_demand"].sum()
 
@@ -223,9 +225,9 @@ class Analyse(BatterySimulation):
 
 
     def print_results(self):
-        print(f"reference region: {self.region}, demand: {(sum(self.data["total_demand"])/1000):.2f} GWh, solar: {(sum(self.data['solar'])/1000):.2f} GWh, wind {(sum(self.data["wind_onshore"])/1000):.2f} GWh")
-        print(f"total demand: {(sum(self.data["my_demand"])/1e3):.2f} MWh " +
-              f"total Renewable_Source: {(sum(self.data["my_renew"])/1e3):.2f} MWh")
+        print(f"reference region: {self.region}, demand: {(sum(self.data['total_demand'])/1000):.2f} GWh, solar: {(sum(self.data['solar'])/1000):.2f} GWh, wind {(sum(self.data['wind_onshore'])/1000):.2f} GWh")
+        print(f"total demand: {(sum(self.data['my_demand'])/1e3):.2f} MWh " +
+              f"total Renewable_Source: {(sum(self.data['my_renew'])/1e3):.2f} MWh")
         print(f"total renewalbes: {(sum(self.pos)/1000):.2f} MWh, residual: {(sum(self.neg)/1000):.2f} MWh")
         if self.my_total_demand == 0.0:
             print(f"share without battery 0.0")
@@ -234,22 +236,22 @@ class Analyse(BatterySimulation):
 
     def print_battery_results(self):
         # print(self.battery_results)
-        sp0 = self.battery_results["spot price [€]"].iloc[1]
-        fp0 = self.battery_results["fix price [€]"].iloc[1]
-        spotprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((sp0-s)/max(1e-10,c)):.2f}" for s,c in zip(self.battery_results["spot price [€]"][3:],self.battery_results["capacity kWh"][3:])]
-        fixprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((fp0-f)/max(1e-10,c)):.2f}" for f,c in zip(self.battery_results["fix price [€]"][3:],self.battery_results["capacity kWh"][3:])]
+        sp0 = self.battery_results["spot price [\N{euro sign}]"].iloc[1]
+        fp0 = self.battery_results["fix price [\N{euro sign}]"].iloc[1]
+        spotprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((sp0-s)/max(1e-10,c)):.2f}" for s,c in zip(self.battery_results["spot price [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
+        fixprice_gain = [f"{0:.2f}",f"{0:.2f}",f"{0:.2f}"] + [f"{((fp0-f)/max(1e-10,c)):.2f}" for f,c in zip(self.battery_results["fix price [\N{euro sign}]"][3:],self.battery_results["capacity kWh"][3:])]
         if max(self.data["my_renew"].sum(),self.data["my_demand"].sum())/1000 > 1000:
             scaler=1000
-            cols = ["cap MWh","resi MWh","exfl MWh", "autarky", "spp [T€]", "fixp [T€]", "sp €/kWh", "fp €/kWh"]
+            cols = ["cap MWh","resi MWh","exfl MWh", "autarky", "spp [T\N{euro sign}]", "fixp [T\N{euro sign}]", "sp \N{euro sign}/kWh", "fp \N{euro sign}/kWh"]
         else:
             scaler=1
-            cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [€]", "fixp [€]", "sp €/kWh", "fp €/kWh"]
+            cols = ["cap kWh","resi kWh","exfl kWh", "autarky", "spp [\N{euro sign}]", "fixp [\N{euro sign}]", "sp \N{euro sign}/kWh", "fp \N{euro sign}/kWh"]
         capacity_l = ["no renew","no bat"] + [f"{(c/scaler)}" for c in self.battery_results["capacity kWh"][2:]]
-        residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results["residual kWh"]]
+        residual_l = [f"{(r/scaler):.1f}" for r in self.battery_results['residual kWh']]
         exflowl = [f"{(e/scaler):.1f}" for e in self.battery_results["exflow kWh"]]
         autarky_rate_l = [f"{a:.2f}" for a in self.battery_results["autarky rate"]]
-        spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [€]"]]
-        fix_price_l = [f"{(f/scaler):.1f}" for f in self.battery_results["fix price [€]"]]
+        spot_price_l = [f"{(s/scaler):.1f}" for s in self.battery_results["spot price [\N{euro sign}]"]]
+        fix_price_l = [f"{(f/scaler):.1f}" for f in self.battery_results["fix price [\N{euro sign}]"]]
         values = np.array([capacity_l, residual_l, exflowl, autarky_rate_l, spot_price_l, fix_price_l, spotprice_gain, fixprice_gain]).T
 
         battery_results_norm = pd.DataFrame(values,
@@ -266,7 +268,7 @@ class Analyse(BatterySimulation):
         else:
             scaler=1
             unit = "kWh"
-        print(f"total renewalbes: {(sum(self.pos)/scaler):.2f} {unit}, residual: {(res/scaler):.2f} {unit}, export: {(sum(self.data["exflow"])/scaler):.2f} {unit}")
+        print(f"total renewalbes: {(sum(self.pos)/scaler):.2f} {unit}, residual: {(res/scaler):.2f} {unit}, export: {(sum(self.data['exflow'])/scaler):.2f} {unit}")
         print(f"share with battery: {((self.my_total_demand - res)/self.my_total_demand):.2f}")
         pass
 
@@ -317,7 +319,7 @@ class MeineAnalyse(Analyse):
         
         self.basic_data_set = basic_data_set
         data = self.load_and_prepare_data(csv_file_path)
-        super().__init__(data, basic_data_set, battery_model=BatteryModel)
+        super().__init__(data, basic_data_set, bms=BatteryManagementSystem, battery_model=BatteryModel)
         # self.batt.battery_cond_load = battery_cond_load
         # self.batt.battery_cond_export_a = battery_cond_export_a
         # self.batt.battery_cond_export_b = battery_cond_export_b
@@ -347,14 +349,14 @@ defaults = {
 }
 """
 
-def battery_cond_load(energy_balance, discharing_factor, current_storage, max_soc, limit_soc_threshold, capacity):
-    return energy_balance > 0
+# def battery_cond_load(energy_balance, discharing_factor, current_storage, max_soc, limit_soc_threshold, capacity):
+#     return energy_balance > 0
 
-def battery_cond_export_a(energy_balance, discharing_factor, df_min, current_storage, min_soc, limit_soc_threshold, capacity):
-    return energy_balance > 0
+# def battery_cond_export_a(energy_balance, discharing_factor, df_min, current_storage, min_soc, limit_soc_threshold, capacity):
+#     return energy_balance > 0
 
-def battery_cond_export_b(energy_balance, price, control_exflow):
-    return energy_balance > 0
+# def battery_cond_export_b(energy_balance, price, control_exflow):
+#     return energy_balance > 0
     
 
 
@@ -395,12 +397,12 @@ if __name__ == "__main__":
 
 """
 von Claude gerechnet.
-Batterie    Autarkie    Verbesserung    €/MWh Verbesserung
+Batterie    Autarkie    Verbesserung    \N{euro sign}/MWh Verbesserung
    0 MWh      71%         -              -
-   1 MWh      73%        +2pp           ~28€/MWh*
-   5 MWh      77%        +6pp           ~19€/MWh
-  20 MWh      84%       +13pp           ~13€/MWh
- 100 MWh      92%       +21pp            ~6€/MWh
+   1 MWh      73%        +2pp           ~28\N{euro sign}/MWh*
+   5 MWh      77%        +6pp           ~19\N{euro sign}/MWh
+  20 MWh      84%       +13pp           ~13\N{euro sign}/MWh
+ 100 MWh      92%       +21pp            ~6\N{euro sign}/MWh
 """
 """
 Ladestrategie anpassen:

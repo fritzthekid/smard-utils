@@ -1,20 +1,60 @@
+#!
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from smard_utils.battery_model import BatteryModel
+from smard_utils.battery_model import BatteryModel, Balance
 
 battery_simulation_version = "1.0"
 
+#class BatteryManagmentSystem
+class BatteryManagementSystem:
+
+    def __init__(self, battery):
+        self.battery = battery
+
+    def battery_cond_load(self,energy_balance):
+        return energy_balance > 0
+
+    def battery_cond_discharge(self,energy_balance):
+        return energy_balance < 0
+
+    def run_step(self, 
+            renew = 0, 
+            demand = 0, 
+            current_storage=0,
+            capacity=0,
+            power_per_step=0,
+            **kwargs):
+        
+        energy_balance = renew - demand   # positiv = Überschuss, negativ = Bedarf
+        if energy_balance > 0:
+            strategy = Balance.LOAD
+        elif energy_balance < 0:
+            strategy = Balance.UNLOAD
+        else:
+            strategy = Balance.NONE
+
+        return self.battery.loading_strategie(
+            strategy = strategy,
+            renew=renew,
+            demand=demand,
+            current_storage=current_storage,
+            capacity=capacity,
+            power_per_step=power_per_step,
+            **kwargs)
+
 class BatterySimulation:
 
-    def __init__(self, data=None, basic_data_set=None, battery_model=BatteryModel, **kwargs):
+    def __init__(self, data=None, basic_data_set=None, battery_model=BatteryModel, 
+                 battery_management_system = BatteryManagementSystem, **kwargs):
         self.data = data if data is not None else pd.DataFrame()
         self.basic_data_set = basic_data_set if basic_data_set is not None else {}
         self.costs_per_kwh = self.basic_data_set.get("fix_costs_per_kwh", 0.1)
         self.battery_results = None
 
-        self.batt = battery_model(basic_data_set=self.basic_data_set,
+        self.battery = battery_model(basic_data_set=self.basic_data_set,
                                 capacity_kwh=self.basic_data_set.get("capacity_kwh", 2000.0),
                                 p_max_kw=self.basic_data_set.get("p_max_kw", 1000.0))
         defaults = {
@@ -23,6 +63,7 @@ class BatterySimulation:
         for k, v in defaults.items():
             self.basic_data_set.setdefault(k, v)
             setattr(self, k, self.basic_data_set[k])
+        self.bms = battery_management_system(battery=self.battery)
 
     def simulate_battery(self, capacity=2000, power=1000):
         """Simulation mit internem battery-Objekt"""
@@ -37,18 +78,18 @@ class BatterySimulation:
         storage_levels, inflows, outflows, residuals, exflows, losses = [], [], [], [], [], []
         current_storage = 0.5 * capacity
 
-        self.batt.exporting = np.full(self.data.shape[0], False, dtype=bool)
-        self.batt.data = self.data
+        self.battery.exporting = np.full(self.data.shape[0], False, dtype=bool)
+        self.battery.data = self.data
 
-        if hasattr(self.batt, "setup_discharging_factor"):
-            self.batt.setup_discharging_factor(0, self.resolution)
+        if hasattr(self.battery, "setup_discharging_factor"):
+            self.battery.setup_discharging_factor(0, self.resolution)
 
         for i, (r, d, p, ap) in enumerate(zip(renew, demand, price, avrgprice)):
-            if hasattr(self.batt, "setup_discharging_factor"):
+            if hasattr(self.battery, "setup_discharging_factor"):
                 tact = self.data.index[i]
                 if 60*tact.hour + tact.minute == 13*60: # 13 Uhr:
-                    self.batt.setup_discharging_factor(i, self.resolution)
-            new_storage, inflow, outflow, residual, exflow, loss = self.batt.loading_strategie(
+                    self.battery.setup_discharging_factor(i, self.resolution)
+            new_storage, inflow, outflow, residual, exflow, loss = self.bms.run_step(
                 renew=r,
                 demand=d,
                 current_storage=current_storage,
@@ -70,7 +111,7 @@ class BatterySimulation:
 
         if not hasattr(self, "exporting_l"):
             self.exporting_l = []
-        self.exporting_l.append((np.size(self.batt.exporting) - np.count_nonzero(self.batt.exporting),self.batt.exporting.sum()))
+        self.exporting_l.append((np.size(self.battery.exporting) - np.count_nonzero(self.battery.exporting),self.battery.exporting.sum()))
 
         # Ergebnisse in DataFrame schreiben
         self.data["battery_storage"] = storage_levels
@@ -94,8 +135,8 @@ class BatterySimulation:
         ]],
             columns=[
                 "capacity kWh", "residual kWh", "exflow kWh",
-                "autarky rate", "spot price [€]",
-                "fix price [€]", "revenue [€]", "loss kWh"
+                "autarky rate", "spot price [\N{euro sign}]",
+                "fix price [\N{euro sign}]", "revenue [\N{euro sign}]", "loss kWh"
             ])
         self.battery_results = pd.concat([self.battery_results, result], ignore_index=True) if self.battery_results is not None else result
         # l = self.give_dark_time(1200.0, capacity)
@@ -119,15 +160,16 @@ class BatterySimulation:
         day = 4*24
         numdays = 50
         s = sorted(ll)
-        plt.plot(np.linspace(0,50,len(l[:numdays*day])),np.array(s[::-1][:numdays*day])/day)
-        # plt.plot(np.array(l[::-1])[:50*day]/(4*24))
-        plt.title(f"capacity: {capacity/1000:.2f} MWh")
-        plt.ylabel("days")
-        plt.xlabel("days")
-        if hasattr(self,"pytest_path"):
-            plt.savefig(f"{self.pytest_path}/fig_{capacity}.svg")
-        else:
-            plt.show()
+        if False:
+            plt.plot(np.linspace(0,50,len(l[:numdays*day])),np.array(s[::-1][:numdays*day])/day)
+            # plt.plot(np.array(l[::-1])[:50*day]/(4*24))
+            plt.title(f"capacity: {capacity/1000:.2f} MWh")
+            plt.ylabel("days")
+            plt.xlabel("days")
+            if hasattr(self,"pytest_path"):
+                plt.savefig(f"{self.pytest_path}/fig_{capacity}.svg")
+            else:
+                plt.show()
         return sorted(l)
 
 
@@ -147,7 +189,7 @@ class BatterySimulation:
 # === Testlauf mit einfacher Zeitreihe ===
 if __name__ == "__main__":
     import pandas as pd, numpy as np
-    hours = pd.date_range("2025-01-01", periods=10, freq="H")
+    hours = pd.date_range("2025-01-01", periods=10, freq="h")
     data = pd.DataFrame({
         "my_renew": np.linspace(500, 1500, 10),
         "my_demand": np.linspace(1000, 800, 10),

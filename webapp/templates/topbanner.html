@@ -1,0 +1,55 @@
+<div class="topbanner">
+<center>
+<div class="topbanner">
+  <table style="width:100%">
+   <tr>
+    <th>
+      <form method="POST" action=".">
+          <button name="command" value="" id="buth">Home</button>
+      </form>
+    </th>
+    <th>
+      <form action="." method="GET">
+          <button name="command" value="analysis" id="butm">Analyse</button>
+      </form>
+    </th>
+    <th>
+      <div class="dropdown">
+          <button class="dropbtn">Szenarien</button>
+        <div class="dropdown-content">
+            <form method="GET" action=".">
+                <button name="command" value="analysis" type="submit"
+                    onclick="this.form.action='.?command=analysis&scenario=biogas'">Biogas</button>
+            </form>
+            <form method="GET" action=".?command=analysis&scenario=solar">
+                <button type="submit">Solar</button>
+            </form>
+            <form method="GET" action=".?command=analysis&scenario=community">
+                <button type="submit">Community</button>
+            </form>
+        </div>
+      </div>
+    </th>
+    <th>
+      <form method="POST" action=".">
+          <button name="command" value="impressum" id="buti">Kontakt</button>
+      </form>
+    </th>
+    <th>
+      {% if authenticated %}
+        <form method="POST" action=".">
+          <button name="command" value="logout" style="background-color:#e58686; color:#0f0f0f">Logout</button>
+        </form>
+      {% else %}
+        <form method="POST" action=".">
+          <button name="command" value="" style="background-color:#dad6d6; color:#333;"
+            onmouseover="style='background-color:#555;color:#dad6d6;'"
+            onmouseout="style='background-color:#dad6d6;color:#333'">Login</button>
+        </form>
+      {% endif %}
+    </th>
+   </tr>
+  </table>
+</div>
+</center>
+</div>

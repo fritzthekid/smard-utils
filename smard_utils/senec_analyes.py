@@ -1,3 +1,5 @@
+#!
+# -*- coding: utf-8 -*-
 import os
 import sys
 import pandas as pd
@@ -123,26 +125,44 @@ basic_data_set = {
     "max_c_rate": 1.0,               # Max 90% Ladezustand
 }
 
-def main(argv={}):
+def main(argv=None):
+    """Main function."""
+    import argparse
     import re
-    file_path=f"{root_dir}/data/senec_data/2024-combine.csv"
-    if "file_path" in argv:
-        file_path = f"{argv['file_path']}"
-        basic_data_set["year"] = int(re.sub(".*/20","20",file_path)[:4])
+
+    parser = argparse.ArgumentParser(
+        prog="senec",
+        description="SENEC home battery analysis",
+    )
+    parser.add_argument(
+        "-d", "--data", default=None, metavar="PATH",
+        help=f"Path to SENEC CSV data file (default: {root_dir}/data/senec_data/2024-combine.csv)"
+    )
+    parser.add_argument(
+        "-y", "--year", type=int, default=None,
+        help="Override year for price data"
+    )
+    args = parser.parse_args(argv)
+
+    file_path = args.data or f"{root_dir}/data/senec_data/2024-combine.csv"
+
+    if args.year:
+        basic_data_set["year"] = args.year
+    elif args.data:
+        basic_data_set["year"] = int(re.sub(".*/20", "20", file_path)[:4])
+
+    if not os.path.exists(file_path):
+        print(f"Data file not found: {file_path}")
+        return
+
     senec = Senec(file_path, basic_data_set=basic_data_set)
-    if "pytest_path" in argv:
-        senec.pytest_path = argv["pytest_path"]
-    senec.run_analysis(capacity_list=[0, 0.005, 0.010, 0.10, 0.005], 
-                       power_list=   [0, 0.0025,0.005, 0.05, 0.0025])
-    # senec.visualise(start=23900, end=24200) ## 2020
-    # senec.visualise(start=24700,end=25700) ## 2024
-    senec.simulate_battery(capacity=5,power=0.12)
+    senec.run_analysis(
+        capacity_list=[0, 0.005, 0.010, 0.10, 0.005],
+        power_list=[0, 0.0025, 0.005, 0.05, 0.0025]
+    )
+    senec.simulate_battery(capacity=5, power=0.12)
     senec.act_simulate_battery(capacity=5)
-    # senec.details(start=23900, end=24200)
-    pass
+
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        main({"file_path":sys.argv[1]})
-    else:
-        main(sys.argv)
+    main()

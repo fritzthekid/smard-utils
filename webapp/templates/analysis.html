@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ scenario_info.name }}</h1>
+
+<div class="form-map-container">
+    <div class="form-wrapper">
+        <form id="analysis-form">
+            <input type="hidden" name="command" value="run">
+            <input type="hidden" name="scenario" value="{{ scenario }}">
+
+            <div class="form-group">
+                <label for="scenario-select">Szenario:</label>
+                <select id="scenario-select" name="scenario_switch" onchange="switchScenario(this.value)">
+                    {% for key, sc in scenarios.items() %}
+                    <option value="{{ key }}" {% if key == scenario %}selected{% endif %}>{{ sc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="strategy">Strategie:</label>
+                <select id="strategy" name="strategy">
+                    {% for s in strategies %}
+                    <option value="{{ s }}" {% if s == scenario_info.default_strategy %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="region">Region:</label>
+                <input type="text" id="region" name="region" value="{{ scenario_info.default_region }}">
+            </div>
+
+            <div class="form-group">
+                <label for="capacities">Kapazitaeten [MWh]:</label>
+                <input type="text" id="capacities" name="capacities" value="{{ scenario_info.default_capacities }}">
+            </div>
+
+            <div class="form-group">
+                <label for="powers">Leistungen [MW]:</label>
+                <input type="text" id="powers" name="powers" value="{{ scenario_info.default_powers }}">
+            </div>
+
+            <div class="form-group">
+                <label for="datafile">Eigene SMARD-Daten (CSV):</label>
+                <input type="file" id="datafile" name="datafile" accept=".csv">
+            </div>
+            <input type="hidden" id="uploaded_file" name="uploaded_file" value="">
+
+            <div class="buttons-container">
+                <button type="submit" id="run-btn">Analyse starten</button>
+            </div>
+        </form>
+
+        <div id="upload-status"></div>
+    </div>
+
+    <div id="results-panel">
+        <div id="loading" style="display:none;">
+            <p>Analyse laeuft...</p>
+        </div>
+        <div id="chart-container" style="display:none;">
+            <img id="chart-img" src="" alt="Ergebnis-Chart">
+            <div class="buttons-container" style="margin-top:10px;">
+                <a id="download-svg" href="#" class="button" download>SVG</a>
+                <a id="download-csv" href="#" class="button" download>CSV</a>
+            </div>
+        </div>
+        <div id="table-container" style="display:none;">
+            <h3>Ergebnisse</h3>
+            <pre id="results-table"></pre>
+        </div>
+        <div id="error-container" style="display:none;">
+            <p id="error-message" class="error-text"></p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}
