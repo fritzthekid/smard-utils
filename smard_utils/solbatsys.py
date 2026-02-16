@@ -15,6 +15,7 @@ from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.solar_driver import SolarDriver
 from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
+from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -46,8 +47,12 @@ class SolBatSys:
         self.analytics = BatteryAnalytics(self.driver, basic_data_set)
         self.analytics.prepare_prices()
 
-        # Initialize strategy
-        self.strategy = DynamicDischargeStrategy(basic_data_set)
+        # Initialize strategy (default: DynamicDischarge with saturation curves)
+        strategy_name = basic_data_set.get("strategy", "dynamic_discharge")
+        if strategy_name == "day_ahead":
+            self.strategy = DayAheadStrategy(basic_data_set)
+        else:
+            self.strategy = DynamicDischargeStrategy(basic_data_set)
 
         # Storage for results
         self.battery_results = None
@@ -193,25 +198,30 @@ basic_data_set = {
 }
 
 
-def main(argv={}):
+def main(argv=None):
     """Main function."""
-    if isinstance(argv, dict) and "region" in argv:
-        region = f"_{argv['region']}"
-    elif isinstance(argv, list) and len(argv) > 1:
-        region = f"_{argv[1]}"
-    else:
-        region = "_de"
+    from smard_utils.utils.cli import create_parser, resolve_data_path
 
-    data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
+    parser = create_parser(
+        prog="solbatsys",
+        description="Solar battery system analysis with dynamic discharge",
+        default_strategy="dynamic_discharge",
+    )
+    args = parser.parse_args(argv)
+
+    region = f"_{args.region}"
+    data_file = resolve_data_path(args)
+
+    if args.year:
+        basic_data_set["year"] = args.year
+
+    basic_data_set["strategy"] = args.strategy
 
     if not os.path.exists(data_file):
-        print(f"❌ Data file not found: {data_file}")
+        print(f"Data file not found: {data_file}")
         return
 
     analyzer = SolBatSys(data_file, region, basic_data_set=basic_data_set)
-
-    if isinstance(argv, dict) and "pytest_path" in argv:
-        analyzer.pytest_path = argv["pytest_path"]
 
     analyzer.run_analysis(
         capacity_list=[1.0, 5, 10, 20, 50, 70],
@@ -220,7 +230,4 @@ def main(argv={}):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        main({"region": sys.argv[1]})
-    else:
-        main(sys.argv)
+    main()

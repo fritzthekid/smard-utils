@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>SMARD Utils - Batterieanalyse</h1>
+
+<p>
+    Analyse von Batteriespeichern im Kontext erneuerbarer Energien.
+    Basierend auf Daten der <a href="https://www.smard.de" target="_blank">SMARD-Plattform</a>
+    der Bundesnetzagentur.
+</p>
+
+<div class="scenario-cards">
+    <div class="scenario-card">
+        <form class="mylink" method="GET" action=".">
+            <input type="hidden" name="command" value="analysis">
+            <input type="hidden" name="scenario" value="biogas">
+            <button type="submit">
+                <h2>Biogas (BioBatSys)</h2>
+                <p>Biogasanlage mit Batteriespeicher und Spotmarkt-Strategie.
+                   Berechnet Flexibilitaetspraemie und optimale Speichergroesse.</p>
+            </button>
+        </form>
+    </div>
+    <div class="scenario-card">
+        <form class="mylink" method="GET" action=".">
+            <input type="hidden" name="command" value="analysis">
+            <input type="hidden" name="scenario" value="solar">
+            <button type="submit">
+                <h2>Solar (SolBatSys)</h2>
+                <p>Photovoltaik mit Batteriespeicher und dynamischer Entladestrategie.
+                   Optimierung der Einspeisung nach Marktpreisen.</p>
+            </button>
+        </form>
+    </div>
+    <div class="scenario-card">
+        <form class="mylink" method="GET" action=".">
+            <input type="hidden" name="command" value="analysis">
+            <input type="hidden" name="scenario" value="community">
+            <button type="submit">
+                <h2>Community (SmardAnalyseSys)</h2>
+                <p>Gemeinschaftliche Energieanalyse mit Solar, Wind und Verbrauch.
+                   Autarkiegrad und Kostenoptimierung.</p>
+            </button>
+        </form>
+    </div>
+</div>
+
+<h2>Strategien</h2>
+<table class="info-table">
+    <tr>
+        <th>Strategie</th>
+        <th>Beschreibung</th>
+    </tr>
+    <tr>
+        <td><code>price_threshold</code></td>
+        <td>Laden/Entladen basierend auf aktuellem Preis vs. gleitendem Durchschnitt (Standard Biogas)</td>
+    </tr>
+    <tr>
+        <td><code>dynamic_discharge</code></td>
+        <td>Saettigungskurven + 24h-Preis-Ranking (Standard Solar/Community)</td>
+    </tr>
+    <tr>
+        <td><code>day_ahead</code></td>
+        <td>Realistische Day-Ahead-Marktpreise (EPEX Spot Auktion um 13:00 CET)</td>
+    </tr>
+</table>
+{% endblock %}

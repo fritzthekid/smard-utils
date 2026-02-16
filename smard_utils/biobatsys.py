@@ -16,6 +16,7 @@ from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.biogas_driver import BiogasDriver
 from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
+from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -47,8 +48,12 @@ class BioBatSys:
         self.analytics = BatteryAnalytics(self.driver, basic_data_set)
         self.analytics.prepare_prices()
 
-        # Initialize strategy (uses BatteryBioBatModel logic)
-        self.strategy = PriceThresholdStrategy(basic_data_set)
+        # Initialize strategy (default: BatteryBioBatModel logic)
+        strategy_name = basic_data_set.get("strategy", "price_threshold")
+        if strategy_name == "day_ahead":
+            self.strategy = DayAheadStrategy(basic_data_set)
+        else:
+            self.strategy = PriceThresholdStrategy(basic_data_set)
 
         # Storage for results
         self.battery_results = None
@@ -147,46 +152,69 @@ class BioBatSys:
         """
         Print biogas-specific results with flex premium.
 
-        This matches the original biobatsys.py output format exactly.
+        Flex premium is only applied when export hours exceed min_flex_hours
+        (default: 4380h = half a year), reflecting EEG flex requirements.
         """
-        flex_add = (self.basic_data_set.get("constant_biogas_kw", 0) *
-                   self.basic_data_set.get("flex_add_per_kwh", 0))
+        flex_add_full = (self.basic_data_set.get("constant_biogas_kw", 0) *
+                        self.basic_data_set.get("flex_add_per_kwh", 0))
+        min_flex_hours = self.basic_data_set.get("min_flex_hours", 4380)
+
+        # Compute export hours per simulation
+        export_hours = [e[1] * self.resolution for e in self.exporting_l]
+
+        # Flex premium per simulation: only if export hours < threshold
+        # (flexible operation = NOT running at full capacity all the time)
+        # exporting_l[0] corresponds to 0.0 MWh (no battery), [1] to first capacity, etc.
+        flex_per_sim = []
+        for eh in export_hours:
+            flex_per_sim.append(flex_add_full if eh < min_flex_hours else 0)
 
         rev1 = self.battery_results["revenue [€]"].iloc[1] if len(self.battery_results) > 1 else 0
 
         # Auto-scale based on data magnitude
         if abs(self.data["my_renew"].sum()) / 1000 > 1000:
             scaler = 1000
-            cols = ["cap MWh", "exfl MWh", "rev [T€]", "revadd [T€]", "rev €/kWh"]
+            cols = ["cap MWh", "exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh"]
         else:
             scaler = 1
-            cols = ["cap kWh", "exfl kWh", "rev [€]", "revadd [€]", "rev €/kWh"]
+            cols = ["cap kWh", "exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh"]
 
         # Print export statistics
         if len(self.exporting_l) > 1:
-            print(f"exporting {self.exporting_l[1][1] * self.resolution} hours but not {self.exporting_l[1][0] * self.resolution} hours")
+            print(f"exporting {export_hours[1]:.0f} hours but not {self.exporting_l[1][0] * self.resolution:.0f} hours"
+                  f" (flex premium applies if export < {min_flex_hours} h)")
 
         # Format results (matches original: skip marker row 0, start from row 1)
         capacity_l = ["no rule"] + [f"{(c / scaler)}" for c in self.battery_results["capacity kWh"][2:]]
 
         exflowl = [f"{(e / scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
 
-        # Row 1 (0.0 MWh) gets no flex premium, rows 2+ get flex premium
+        # Row 1 (0.0 MWh) gets no flex premium, rows 2+ get conditional flex premium
+        # flex_per_sim[0] = 0.0 MWh baseline, flex_per_sim[1] = first capacity, etc.
         val = self.battery_results['revenue [€]'][1] if len(self.battery_results) > 1 else 0
         revenue_l = [f"{(val / scaler):.1f}"] + [
-            f"{((f + flex_add) / scaler):.1f}" for f in self.battery_results["revenue [€]"][2:]
+            f"{((rev + flex) / scaler):.1f}"
+            for rev, flex in zip(self.battery_results["revenue [€]"][2:], flex_per_sim[1:])
         ]
 
         revenue_gain = ["nn"] + [
-            f"{((r - rev1 + flex_add) / scaler):.2f}" for r in self.battery_results["revenue [€]"][2:]
+            f"{((rev - rev1 + flex) / scaler):.2f}"
+            for rev, flex in zip(self.battery_results["revenue [€]"][2:], flex_per_sim[1:])
         ]
 
         capacity_costs = [f"{0:.2f}"] + [f"{0:.2f}"] + [
-            f"{((r - rev1 + flex_add) / max(1e-10, c)):.2f}"
-            for r, c in zip(self.battery_results["revenue [€]"][3:], self.battery_results["capacity kWh"][3:])
+            f"{((rev - rev1 + flex) / max(1e-10, c)):.2f}"
+            for rev, c, flex in zip(
+                self.battery_results["revenue [€]"][3:],
+                self.battery_results["capacity kWh"][3:],
+                flex_per_sim[2:]
+            )
         ]
 
-        values = np.array([capacity_l, exflowl, revenue_l, revenue_gain, capacity_costs]).T
+        # Export hours per simulation
+        expo_l = [f"{int(eh)}" for eh in export_hours]
+
+        values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs]).T
 
         battery_results_norm = pd.DataFrame(values, columns=cols)
 
@@ -212,23 +240,30 @@ basic_data_set = {
 }
 
 
-def main(argv=[]):
+def main(argv=None):
     """Main function."""
-    if len(argv) > 1:
-        region = f"_{argv[1]}"
-    else:
-        region = "_de"
+    from smard_utils.utils.cli import create_parser, resolve_data_path
 
-    data_file = f"{root_dir}/quarterly/smard_data{region}/smard_2024_complete.csv"
+    parser = create_parser(
+        prog="biobatsys",
+        description="Biogas battery system analysis with spot-price trading",
+        default_strategy="price_threshold",
+    )
+    args = parser.parse_args(argv)
+
+    region = f"_{args.region}"
+    data_file = resolve_data_path(args)
+
+    if args.year:
+        basic_data_set["year"] = args.year
+
+    basic_data_set["strategy"] = args.strategy
 
     if not os.path.exists(data_file):
-        print(f"❌ Data file not found: {data_file}")
+        print(f"Data file not found: {data_file}")
         return
 
     analyzer = BioBatSys(data_file, region, basic_data_set=basic_data_set)
-
-    if isinstance(argv, dict) and "pytest_path" in argv:
-        analyzer.pytest_path = argv["pytest_path"]
 
     analyzer.run_analysis(
         capacity_list=[1.0, 5, 10, 20, 100],
@@ -237,4 +272,4 @@ def main(argv=[]):
 
 
 if __name__ == "__main__":
-    main(argv=sys.argv)
+    main()

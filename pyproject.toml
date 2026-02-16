@@ -23,6 +23,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "seaborn",
+    "flask",
 ]
 
 [project.optional-dependencies]
@@ -35,7 +36,7 @@ test = [
 Homepage = "https://github.com/fritzthekid/smard-utils"
 
 [project.scripts]
-smard = "smard_utils.smard_analyse:main"
+community = "smard_utils.community:main"
 biobatsys = "smard_utils.biobatsys:main"
 solbatsys = "smard_utils.solbatsys:main"
 senec = "smard_utils.senec_analyes:main"
