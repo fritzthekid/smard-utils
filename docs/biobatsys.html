@@ -1,0 +1,144 @@
+---
+layout: default
+title: Biobatsys – Biogasanlage
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-szenario">Szenario</a></li>
+      <li><a href="#sec-flex">EEG-Flexibilisierung</a></li>
+      <li><a href="#sec-strategie">Ladestrategie</a></li>
+      <li><a href="#sec-konfiguration">Konfiguration</a></li>
+      <li><a href="#sec-befehle">Befehle</a></li>
+      <li><a href="#sec-ausgabe">Ausgabe</a></li>
+      <hr>
+      <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
+      <li><a href="community.html">Community</a></li>
+      <li><a href="strategies.html">Strategien</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>biobatsys – Biogasanlage mit Batteriespeicher</h1>
+
+    <h2 id="sec-szenario">Szenario</h2>
+    <p>
+      Eine Biogasanlage mit konstanter elektrischer Nennleistung
+      (typisch: 1 MW) speist kontinuierlich ins Netz ein.
+      Durch einen vorgelagerten Batteriespeicher kann die Einspeisung
+      zeitlich verschoben werden: In Stunden mit niedrigem Spotpreis
+      wird die Batterie geladen, in Stunden mit hohem Preis wird sie
+      zusätzlich zur laufenden Erzeugung entladen.
+    </p>
+    <p>
+      Das Tool beantwortet die Frage: Wie viel Mehrerlös
+      (in €/kWh Speicherkapazität) bringt ein Batteriespeicher
+      gegenüber einer ungepufferten Einspeisung?
+    </p>
+
+    <h2 id="sec-flex">EEG-Flexibilisierungsprämie</h2>
+    <p>
+      Biogasanlagen können nach § 50b EEG eine
+      <strong>Flexibilisierungsprämie</strong> erhalten, wenn sie
+      nachweislich flexibel betrieben werden – d.h. nicht dauerhaft
+      mit Vollleistung einspeisen.
+    </p>
+    <div class="info-box">
+      <strong>Bedingung:</strong> Die Einspeisestunden müssen
+      <em>unter</em> einem Grenzwert liegen (Standard: 4.380 h/Jahr =
+      halbes Jahr). Ein Batteriespeicher kann dabei helfen, die
+      Einspeisung auf die lukrativsten Stunden zu konzentrieren.
+    </div>
+    <p>
+      Die Prämie berechnet sich als Jahresbetrag:
+    </p>
+    <pre>Flexprämie = constant_biogas_kw × flex_add_per_kwh  [€/Jahr]</pre>
+    <p>
+      In der Ausgabe wird die Prämie nur dann addiert, wenn die
+      simulierten Einspeisestunden den Grenzwert unterschreiten.
+    </p>
+
+    <h2 id="sec-strategie">Ladestrategie</h2>
+    <p>
+      Die Standard-Strategie <code>price_threshold</code> vergleicht den
+      aktuellen Spotpreis mit dem gleitenden 25-Stunden-Mittelwert:
+    </p>
+    <table>
+      <tr><th>Bedingung</th><th>Aktion</th></tr>
+      <tr><td><code>preis ≥ threshold × mittelpreis</code></td><td>Entladen + Exportieren</td></tr>
+      <tr><td><code>preis &lt; threshold × mittelpreis</code></td><td>Laden (Energie wird gepuffert)</td></tr>
+    </table>
+    <p>
+      Die Tag-zuvor-Strategie (<code>day_ahead</code>) simuliert den realen
+      Marktbetrieb: Preise werden täglich um 13:00 Uhr für den
+      Folgetag veröffentlicht.
+      Siehe <a href="strategies.html">Strategien</a> für Details.
+    </p>
+
+    <h2 id="sec-konfiguration">Konfiguration</h2>
+    <p>
+      Die Standardkonfiguration in <code>biobatsys.py</code>:
+    </p>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>constant_biogas_kw</code></td><td>1000</td><td>Konstante Erzeugungsleistung (kW)</td></tr>
+      <tr><td><code>flex_add_per_kwh</code></td><td>100</td><td>Flexprämie (€/kW/Jahr)</td></tr>
+      <tr><td><code>min_flex_hours</code></td><td>4380</td><td>Max. Einspeisestunden für Prämie (h)</td></tr>
+      <tr><td><code>load_threshold</code></td><td>1.0</td><td>Preisschwelle als Faktor des Mittelpreises</td></tr>
+      <tr><td><code>marketing_costs</code></td><td>−0.003</td><td>Vermarktungskosten (€/kWh, negativ = Abzug)</td></tr>
+      <tr><td><code>fix_costs_per_kwh</code></td><td>11</td><td>Fixpreis-Referenz (ct/kWh)</td></tr>
+      <tr><td><code>year</code></td><td>2024</td><td>Jahr der Preisdaten</td></tr>
+    </table>
+
+    <h2 id="sec-befehle">Befehle</h2>
+    <pre># Standard: price_threshold, Deutschland 2024
+biobatsys
+
+# Tag-zuvor-Strategie
+biobatsys -s day_ahead
+
+# Luxemburg, Tag-zuvor
+biobatsys -s day_ahead -r lu
+
+# Eigene Datei, Jahr 2020
+biobatsys -d quarterly/smard_data_de/smard_2020_complete.csv -y 2020
+
+# Hilfe
+biobatsys -h</pre>
+
+    <h2 id="sec-ausgabe">Ausgabe</h2>
+    <p>
+      Das Tool simuliert die Anlage ohne Speicher und für jede
+      Speichergröße in der Kapazitätsliste. Ausgegeben wird eine Tabelle:
+    </p>
+    <pre>exporting 6821 hours but not 1939 hours (flex premium applies if export &lt; 4380 h)
+
+  cap MWh  exfl MWh  export [h]  rev [T€]  revadd [T€]  rev €/kWh
+  no rule      13.4        8760     603.8          nn          nn
+      1.0      13.4        6821     708.2       104.4       104.4
+      5.0      13.2        5930     742.1       138.3        27.7
+     10.0      13.1        5210     761.4       157.6        15.8
+     20.0      12.8        4380     792.0       188.2         9.4
+    100.0      11.6        3190     751.3       147.5         1.5</pre>
+    <p>Spalten:</p>
+    <table>
+      <tr><th>Spalte</th><th>Bedeutung</th></tr>
+      <tr><td><code>cap MWh</code></td><td>Speicherkapazität</td></tr>
+      <tr><td><code>exfl MWh</code></td><td>Gesamteinspeisung (MWh/Jahr)</td></tr>
+      <tr><td><code>export [h]</code></td><td>Einspeisestunden (relevant für Flexprämie)</td></tr>
+      <tr><td><code>rev [T€]</code></td><td>Gesamterlös inkl. Flexprämie (T€/Jahr)</td></tr>
+      <tr><td><code>revadd [T€]</code></td><td>Mehrerlös gegenüber ungepufferter Einspeisung</td></tr>
+      <tr><td><code>rev €/kWh</code></td><td>Mehrerlös pro kWh Speicherkapazität</td></tr>
+    </table>
+    <div class="info-box">
+      <strong>Interpretation:</strong> Sobald die Einspeisestunden durch den
+      Speicher unter 4.380 h sinken (typisch ab ~20 MWh),
+      wird die Flexprämie freigeschaltet – erkennbar am Sprung in
+      <em>rev [T€]</em>. Danach nimmt der Grenznutzen je kWh Kapazität
+      deutlich ab.
+    </div>
+  </article>
+</section>

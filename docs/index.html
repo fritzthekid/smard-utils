@@ -1,0 +1,168 @@
+---
+layout: default
+title: Übersicht
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="#sec-ziel">Ziel</a></li>
+      <li><a href="#sec-szenarien">Szenarien</a></li>
+      <li><a href="#sec-daten">Datenquellen</a></li>
+      <li><a href="#sec-installation">Installation</a></li>
+      <li><a href="#sec-datenvorbereitung">Datenvorbereitung</a></li>
+      <li><a href="#sec-befehle">Befehle</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
+      <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
+      <li><a href="community.html">Community</a></li>
+      <li><a href="strategies.html">Strategien</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>SMARD-Utils – Dokumentation</h1>
+
+    <p><strong>Wichtiger Hinweis</strong>: Diese Tools werden ohne Gewähr angeboten.
+      Keine Haftung für Richtigkeit der Ergebnisse oder Verfügbarkeit.
+      Quellcode: <a href="https://github.com/fritzthekid/smard-utils">github.com/fritzthekid/smard-utils</a></p>
+
+    <h2 id="sec-ziel">Ziel</h2>
+    <p>
+      SMARD-Utils analysiert den wirtschaftlichen Nutzen von Batteriespeichern
+      für Erneuerbare-Energie-Anlagen. Die zentrale Frage lautet:
+    </p>
+    <div class="info-box">
+      <strong>Wie viel Mehrerlös (€/kWh Kapazität) bringt ein Batteriespeicher
+      bei einer gegebenen erneuerbaren Energiequelle?</strong>
+    </div>
+    <p>
+      Dazu werden historische Erzeugungsdaten von <strong>SMARD.de</strong>
+      (Bundesnetzagentur) mit stündlichen EPEX-Spotpreisen kombiniert.
+      Verschiedene Ladestrategien werden für eine Reihe von Speichergrößen
+      simuliert und verglichen.
+    </p>
+
+    <h2 id="sec-szenarien">Drei Szenarien</h2>
+    <ol>
+      <li>
+        <strong><a href="biobatsys.html">Biogasanlage (biobatsys)</a></strong> –
+        Konstante Einspeisung einer BHKW-Anlage auf dem Spotmarkt.
+        Berechnet zusätzlich die EEG-Flexibilisierungsprämie.
+      </li>
+      <li>
+        <strong><a href="solbatsys.html">Solarpark (solbatsys)</a></strong> –
+        Großer PV-Park mit Speicher. Optimiert den Exportzeitpunkt,
+        um Einnahmen aus der Spotmarktvermarktung zu maximieren.
+      </li>
+      <li>
+        <strong><a href="community.html">Quartier/Community</a></strong> –
+        Wohnquartier mit Solar + Wind und realem Verbrauch.
+        Bewertet Autarkierate und Kosteneinsparungen gegenüber
+        einem Fixpreis- oder Spotpreis-Einkauf.
+      </li>
+    </ol>
+
+    <h2 id="sec-daten">Datenquellen</h2>
+    <h3>SMARD.de – Erzeugungsdaten</h3>
+    <p>
+      Die Erzeugungsdaten (Wind Onshore/Offshore, Solar, Biomasse, Wasserkraft,
+      Netzlast) stammen von der API der Bundesnetzagentur:
+      <a href="https://www.smard.de">smard.de</a>.
+      Die Daten liegen im 15-Minuten- oder Stundentakt vor
+      und werden als CSV-Dateien (Semikolon-getrennt, deutsches Dezimalformat)
+      heruntergeladen.
+    </p>
+    <p>
+      Der Downloader <code>smard_utils/smard_downloader_quaterly.py</code>
+      lädt die Daten in 14-Tage-Paketen herunter und legt sie unter
+      <code>quarterly/smard_data_{region}/</code> ab.
+    </p>
+
+    <h3>Netztransparenz.de – Spotpreise</h3>
+    <p>
+      Stündliche EPEX-Spotpreise (Day-Ahead-Auktion) werden von
+      <a href="https://www.netztransparenz.de">netztransparenz.de</a>
+      bezogen. Das Skript <code>smard_utils/utils/prepare_hourly_prices.py</code>
+      konvertiert die Rohdaten in das Format
+      <code>costs/{jahr}-hour-price.csv</code> (Spalten: <code>time</code>, <code>price</code> in ct/kWh).
+    </p>
+
+    <h2 id="sec-installation">Installation</h2>
+    <ol>
+      <li><strong>Repository klonen</strong>:
+        <pre>git clone https://github.com/fritzthekid/smard-utils.git
+cd smard-utils</pre>
+      </li>
+      <li><strong>Virtuelle Umgebung erstellen und aktivieren</strong>:
+        <pre>python3 -m venv .venv
+source .venv/bin/activate   # Linux / macOS
+.venv\Scripts\activate      # Windows</pre>
+      </li>
+      <li><strong>Paket installieren</strong>:
+        <pre>pip install -e .</pre>
+      </li>
+      <li><strong>Tests ausführen</strong> (optional):
+        <pre>pytest</pre>
+      </li>
+    </ol>
+
+    <h2 id="sec-datenvorbereitung">Datenvorbereitung</h2>
+    <p>Die Tools erwarten zwei Arten von Eingabedaten:</p>
+    <table>
+      <tr><th>Datei</th><th>Inhalt</th><th>Standardpfad</th></tr>
+      <tr>
+        <td>SMARD-CSV</td>
+        <td>Erzeugung &amp; Netzlast (15 min / 1 h)</td>
+        <td><code>quarterly/smard_data_de/smard_2024_complete.csv</code></td>
+      </tr>
+      <tr>
+        <td>Preisdaten</td>
+        <td>Stündliche Spotpreise in ct/kWh</td>
+        <td><code>costs/2024-hour-price.csv</code></td>
+      </tr>
+    </table>
+    <p>
+      Für Luxemburg wird <code>smard_data_lu</code> als Regionscode verwendet.
+      Eigene Dateipfade können mit <code>-d</code> übergeben werden.
+    </p>
+
+    <h2 id="sec-befehle">CLI-Befehle</h2>
+    <p>Nach der Installation stehen vier Kommandozeilenwerkzeuge bereit:</p>
+    <table>
+      <tr><th>Befehl</th><th>Szenario</th><th>Standard-Strategie</th><th>Standard-Region</th></tr>
+      <tr><td><code>biobatsys</code></td><td>Biogasanlage + Spotmarkt</td><td><code>price_threshold</code></td><td>de</td></tr>
+      <tr><td><code>solbatsys</code></td><td>Solarpark + Spotmarkt</td><td><code>dynamic_discharge</code></td><td>de</td></tr>
+      <tr><td><code>community</code></td><td>Quartier (Solar + Wind + Verbrauch)</td><td><code>dynamic_discharge</code></td><td>lu</td></tr>
+      <tr><td><code>senec</code></td><td>Heimspeicher (SENEC-Monitoring)</td><td>–</td><td>–</td></tr>
+    </table>
+
+    <h3>Gemeinsame Optionen</h3>
+    <table>
+      <tr><th>Option</th><th>Beschreibung</th></tr>
+      <tr><td><code>-s, --strategy</code></td><td>BMS-Strategie: <code>price_threshold</code>, <code>dynamic_discharge</code>, <code>day_ahead</code></td></tr>
+      <tr><td><code>-r, --region</code></td><td>Region: <code>de</code> (Deutschland), <code>lu</code> (Luxemburg)</td></tr>
+      <tr><td><code>-d, --data</code></td><td>Pfad zur SMARD-CSV-Datei (überschreibt Automatik)</td></tr>
+      <tr><td><code>-y, --year</code></td><td>Jahr der Preisdaten (Standard: aus Dateiname)</td></tr>
+      <tr><td><code>-h, --help</code></td><td>Hilfe anzeigen</td></tr>
+    </table>
+
+    <h3>Schnellstart-Beispiele</h3>
+    <pre># Biogasanlage, Tag-zuvor-Strategie, Luxemburg
+biobatsys -s day_ahead -r lu
+
+# Solarpark, Deutschland, eigene Datei
+solbatsys -d pfad/zu/smard_daten.csv
+
+# Quartier, Tag-zuvor-Strategie
+community -s day_ahead
+
+# Alle Strategien für Biogasanlage vergleichen
+biobatsys -s price_threshold
+biobatsys -s dynamic_discharge
+biobatsys -s day_ahead</pre>
+
+    <h2>Lizenz</h2>
+    <p>Dieses Projekt steht unter der <strong>BSD-Lizenz</strong>.</p>
+  </article>
+</section>

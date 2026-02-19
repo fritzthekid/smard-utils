@@ -1,0 +1,177 @@
+---
+layout: default
+title: BMS-Strategien
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-uebersicht">Übersicht</a></li>
+      <li><a href="#sec-threshold">price_threshold</a></li>
+      <li><a href="#sec-dynamic">dynamic_discharge</a></li>
+      <li><a href="#sec-dayahead">day_ahead</a></li>
+      <li><a href="#sec-vergleich">Wann was verwenden?</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
+      <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
+      <li><a href="community.html">Community</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>BMS-Strategien</h1>
+
+    <p>
+      Das Battery Management System (BMS) entscheidet in jedem Zeitschritt,
+      ob die Batterie geladen, entladen oder die Energie direkt eingespeist
+      wird. Alle Strategien folgen derselben Prioritätsreihenfolge:
+    </p>
+    <ol>
+      <li><strong>Entladen</strong> – Batterie + Erzeugung werden eingespeist</li>
+      <li><strong>Laden</strong> – Überschussstrom geht in die Batterie</li>
+      <li><strong>Einspeisen</strong> – Direkteinspeisung ohne Batterieaktion</li>
+      <li><strong>Curtailment</strong> – Energie wird verworfen (kein Export)</li>
+    </ol>
+    <p>
+      Die Strategie legt fest, in welchen Stunden welche Aktion ausgelöst wird.
+      Allen drei Strategien gemeinsam: Das Physikmodell der Batterie
+      (Wirkungsgrad, Verluste, SOC-Grenzen) ist unabhängig von der Strategie.
+    </p>
+
+    <h2 id="sec-threshold">price_threshold – Preisschwellenstrategie</h2>
+    <p>
+      <strong>Standardstrategie für biobatsys.</strong>
+    </p>
+    <p>
+      Vergleicht den aktuellen Spotpreis mit dem gleitenden 25-Stunden-Mittelwert:
+    </p>
+    <pre>Entladen:  preis ≥ load_threshold × avg_preis
+Laden:     preis &lt; load_threshold × avg_preis
+Export:    nie (nur beim Entladen)</pre>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>load_threshold</code></td><td>1,0</td><td>Schwelle als Faktor des 25h-Mittelwerts</td></tr>
+    </table>
+    <p>
+      Mit <code>load_threshold = 1.0</code> wird genau dann entladen,
+      wenn der aktuelle Preis über dem gleitenden Mittel liegt – und geladen,
+      wenn er darunter liegt. Höhere Werte (z.B. 1,2) machen die Entladeentscheidung
+      konservativer: nur deutlich überdurchschnittliche Stunden werden genutzt.
+    </p>
+    <p><strong>Geeignet für:</strong> Biogasanlagen, einfache Szenarien,
+    wenn Preisvolatilität das einzige Kriterium ist.</p>
+
+    <h2 id="sec-dynamic">dynamic_discharge – Dynamische Entladestrategie</h2>
+    <p>
+      <strong>Standardstrategie für solbatsys und community.</strong>
+    </p>
+    <p>
+      Erstellt täglich um 13:00 Uhr ein Preisranking für die nächsten 24 Stunden.
+      Jeder Stunde des Tages wird ein Entladefaktor <em>df ∈ [−1, 1]</em> zugewiesen:
+    </p>
+    <ul>
+      <li><strong>df = −1</strong>: günstigste Stunde des Tages (Laden bevorzugt)</li>
+      <li><strong>df = +1</strong>: teuerste Stunde des Tages (Entladen bevorzugt)</li>
+    </ul>
+    <pre>Laden:     df &lt; 0   und SOC unterhalb Grenze
+Entladen:  df &gt; 0,7 und SOC oberhalb Grenze → Sättigungskurve
+Export:    preis ≥ 0 und control_exflow &gt; 1</pre>
+    <p>
+      Die Entlademenge wird durch eine konkave Sättigungskurve moduliert:
+    </p>
+    <pre>u      = (df − 0.7) / (1 − 0.7)
+faktor = 1 − (1 − u)³</pre>
+    <p>
+      Dadurch wird in der teuersten Stunde die volle Leistung entladen,
+      in knapp über der Schwelle liegenden Stunden nur ein kleiner Anteil.
+    </p>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>limit_soc_threshold</code></td><td>0,05</td><td>SOC-Sicherheitsmarge um min/max-Grenzen</td></tr>
+      <tr><td><code>control_exflow</code></td><td>3</td><td>0/1 = kein Export; ≥ 2 = Export bei preis ≥ 0</td></tr>
+    </table>
+    <p><strong>Geeignet für:</strong> Solarparks, Quartiersspeicher,
+    Szenarien mit stark tagesperiodischen Preisprofilen.</p>
+
+    <h2 id="sec-dayahead">day_ahead – Tag-zuvor-Strategie</h2>
+    <p>
+      <strong>Realitätsnahe Simulation des EPEX-Spot-Marktbetriebs.</strong>
+    </p>
+    <p>
+      Die EPEX-Spot-Börse veröffentlicht Day-Ahead-Preise täglich um ca. 13:00 Uhr
+      für alle 24 Stunden des Folgetags. Die Strategie simuliert genau diese
+      Informationsgrenze:
+    </p>
+    <ul>
+      <li>Vor 13:00: Nur die Preise des heutigen Tages sind bekannt</li>
+      <li>Ab 13:00: Zusätzlich alle 24 Stunden des Folgetags verfügbar</li>
+    </ul>
+    <p>
+      Aus dem bekannten Preisfenster wird ein Mittelwert berechnet,
+      und jede Stunde bekommt eine Aktion zugewiesen:
+    </p>
+    <pre>Entladen:  preis ≥ discharge_threshold × fenster_mittel
+Laden:     preis ≤ charge_threshold    × fenster_mittel
+Idle:      sonst</pre>
+    <p>
+      Die Entlademenge wird ebenfalls durch eine konkave Kurve moduliert,
+      abhängig davon, wie weit der Preis über dem Entlade-Schwellwert liegt.
+    </p>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>discharge_threshold</code></td><td>1,2</td><td>Preis muss 120 % des Fenstermittels überschreiten</td></tr>
+      <tr><td><code>charge_threshold</code></td><td>0,8</td><td>Preis muss unter 80 % des Fenstermittels liegen</td></tr>
+      <tr><td><code>control_exflow</code></td><td>3</td><td>Exportsteuerung (wie dynamic_discharge)</td></tr>
+    </table>
+    <div class="info-box">
+      <strong>Vorteil gegenüber price_threshold / dynamic_discharge:</strong>
+      Diese Strategie arbeitet ohne Blick in die Zukunft – sie spiegelt
+      wider, was ein realer Speicherbetreiber an der Börse tun könnte.
+      Ergebnisse sind dadurch konservativer und praxisnäher.
+    </div>
+    <p><strong>Geeignet für:</strong> Alle Szenarien, wenn eine
+    realistische Abschätzung des erreichbaren Erlöses gefragt ist.</p>
+
+    <h2 id="sec-vergleich">Wann welche Strategie?</h2>
+    <table>
+      <tr>
+        <th>Strategie</th>
+        <th>Szenario</th>
+        <th>Stärke</th>
+        <th>Schwäche</th>
+      </tr>
+      <tr>
+        <td><code>price_threshold</code></td>
+        <td>biobatsys</td>
+        <td>Einfach, robust</td>
+        <td>Kein Blick auf Tagesverlauf</td>
+      </tr>
+      <tr>
+        <td><code>dynamic_discharge</code></td>
+        <td>solbatsys, community</td>
+        <td>Optimales Tagesranking</td>
+        <td>Kennt Tagespreise im Voraus (leicht optimistisch)</td>
+      </tr>
+      <tr>
+        <td><code>day_ahead</code></td>
+        <td>alle</td>
+        <td>Realistische Informationsgrenze</td>
+        <td>Etwas geringerer Erlös als dynamic_discharge</td>
+      </tr>
+    </table>
+    <p>
+      Alle drei Strategien sind in jedem Kommando verfügbar:
+    </p>
+    <pre>biobatsys   -s price_threshold     # Standard
+biobatsys   -s dynamic_discharge
+biobatsys   -s day_ahead           # realistisch
+
+solbatsys   -s dynamic_discharge   # Standard
+solbatsys   -s day_ahead
+
+community   -s dynamic_discharge   # Standard
+community   -s day_ahead</pre>
+  </article>
+</section>

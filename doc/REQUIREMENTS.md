@@ -1,649 +1,520 @@
-# SMARD-Utils - System Requirements Document
+# SMARD-Utils — System Requirements Document
 
 ## Project Overview
 
 **Project Name:** SMARD-Utils
-**Version:** 0.1.0
-**Purpose:** Battery Energy Storage System (BESS) analysis framework for renewable energy scenarios
-**Primary Use Cases:** Analysis of battery storage systems in biogas plants, solar installations, and grid-scale renewable energy systems using real German energy market data (SMARD.de)
+**Version:** 0.1
+**Purpose:** Analyse the economic value of battery storage systems for renewable energy producers
+**Primary question:** How much revenue (€/kWh capacity) can a battery storage system add to a given renewable energy source?
+
+**Supported scenarios:**
+1. **Biogas plant** — constant-output CHP plant trading on the spot market, earning the EEG Flexibilisierungsprämie
+2. **Solar PV park** — large-scale solar installation with optimised export timing
+3. **Community energy** — residential cluster with solar + wind, evaluated against real demand
+
+**Data source:** German energy market data from SMARD.de (15-minute / hourly resolution), supplemented by hourly EPEX Spot prices.
 
 ---
 
-## 1. Core Module Analysis
+## 1. Architecture
 
-### 1.1 BioBatSys Module (`biobatsys.py`)
+The system is structured in four layers:
 
-**Purpose:** Battery management system for biogas plant applications with spot-price based trading strategies
+```
+Applications  (BioBatSys, SolBatSys, SmardAnalyseSys)
+      │
+   ┌──┴────────────────────────────────────────────┐
+   │  BMS Strategies (PriceThreshold, DynamicDischarge, DayAhead)
+   │  Core BMS (BatteryManagementSystem)
+   │  Core Battery (Battery)
+   │  Core Analytics (BatteryAnalytics)
+   └──┬────────────────────────────────────────────┘
+      │
+   Drivers (BiogasDriver, SolarDriver, CommunityDriver, SenecDriver)
+      │
+   Data files (SMARD CSV, hourly price CSV)
+```
 
-**Functional Requirements:**
+### 1.1 Core Layer (`smard_utils/core/`)
 
-#### FR-BIO-001: Battery Model for Biogas Applications
-- **Description:** Specialized battery model (`BatteryBioBatModel`) for biogas plants with constant renewable energy source
-- **Key Features:**
-  - Price-based charging/discharging strategy
-  - Hysteresis control to prevent rapid switching
-  - Support for constant biogas power input
-  - Export control based on price thresholds
-  - Flexible pricing strategy (flexibilization premium support)
+#### Battery (`core/battery.py`)
 
-#### FR-BIO-002: Price-Based Control Strategy
-- **Loading Condition:** Battery charges when `price < load_threshold * average_price`
-- **Unloading Condition:** Battery discharges when `price > load_threshold * average_price`
-- **Hysteresis:** Configurable hysteresis parameter to prevent oscillations
-- **Parameters:**
-  - `load_threshold`: Default 0.9 (90% of average price)
-  - `load_threshold_high`: Default 1.2 (120% of average price)
-  - `load_threshold_hytheresis`: Default 0.05
+Physical battery model shared across all scenarios.
 
-#### FR-BIO-003: Biogas-Specific Data Model
-- **Inputs:**
-  - Constant biogas power (kW)
-  - Grid demand data from SMARD
-  - Hourly electricity spot prices
-  - Flexibilization parameters
-- **Outputs:**
-  - Revenue calculations with flexibilization premium
-  - Export hours tracking
-  - Battery capacity optimization results
+**Parameters (from `basic_data_set` or defaults):**
 
-#### FR-BIO-004: Revenue Model
-- **Flexibilization Premium:** `flex_add_per_kwh` parameter for additional revenue
-- **Marketing Costs:** Deduction for spot market trading costs
-- **Capacity Optimization:** Compare different battery sizes (kWh) with associated costs
+| Parameter | Default | Description |
+|---|---|---|
+| `capacity_kwh` | runtime arg | Total usable capacity (kWh) |
+| `p_max_kw` | `max_c_rate × capacity_kwh` | Max charge/discharge power (kW) |
+| `max_c_rate` | 0.5 | Maximum C-rate (0.5 C = 2 h full charge/discharge) |
+| `efficiency_charge` | 0.96 | One-way charging efficiency |
+| `efficiency_discharge` | 0.96 | One-way discharging efficiency |
+| `battery_discharge` | 0.0005 | Self-discharge rate per hour (0.05 %/h) |
+| `min_soc` | 0.05 | Minimum state of charge (5 %) |
+| `max_soc` | 0.95 | Maximum state of charge (95 %) |
+| `r0_ohm` | 0.006 | Internal resistance for I²R loss (Ω) |
+| `u_nom` | 800.0 | Nominal voltage for current calculation (V) |
 
-**Technical Specifications:**
-- Resolution: Variable (typically 15-60 minutes based on SMARD data)
-- Default configuration:
-  ```python
-  constant_biogas_kw: 1000 kW
-  flex_add_per_kwh: 100 €/kWh
-  flex_factor: 3 (capacity expansion factor)
-  marketing_costs: -0.003 €/kWh
-  ```
+**Per-step operation (`Battery.execute()`):**
+1. Clamp requested charge/discharge to power limit (`p_max_kw × dt_h`)
+2. If charging: compute I²R loss, apply charging efficiency, add to storage
+3. If discharging: compute I²R loss, apply discharging efficiency, subtract from storage
+4. Apply self-discharge: `storage *= (1 - battery_discharge × dt_h)`
+5. Clamp storage to `[min_soc × capacity_kwh, max_soc × capacity_kwh]`
+
+**Energy formulas:**
+```
+I²R loss:        E_loss = (P/U_nom)² × R0 × dt_h / 1000  [kWh]
+Stored energy:   stored = (charge_kwh - E_loss) × η_charge
+Delivered:       delivered = (discharge_kwh - E_loss) × η_discharge
+Storage removed: storage -= discharge_kwh / η_discharge
+```
+
+Battery initialises at 50 % SOC. State is reset for each new simulation run.
 
 ---
 
-### 1.2 Simple BMS Module (`simple_bms.py`)
+#### BMS Strategy Interface (`core/bms.py`)
 
-**Purpose:** Simplified Battery Management System with raw battery model for general applications
+Abstract base class `BMSStrategy` defines the control contract:
 
-**Functional Requirements:**
-
-#### FR-SBMS-001: Generic Battery Management
-- **Description:** Flexible battery management system supporting multiple battery models
-- **Architecture:**
-  - `BatteryManagementSystem`: Controller class
-  - `BatterySimulation`: Simulation orchestrator
-  - `Analyse`: Analysis and reporting framework
-
-#### FR-SBMS-002: Energy Balancing
-- **Balancing Logic:**
-  ```
-  requested_charge = renewable_energy - demand
-  if requested_charge > 0: charge battery
-  if requested_charge < 0: discharge battery to meet demand
-  ```
-- **Power Limits:** Configurable max charge/discharge power
-- **SOC Limits:** Min/Max state of charge protection (default: 5%-95%)
-
-#### FR-SBMS-003: Cost Analysis
-- **Dual Pricing Support:**
-  - Spot market prices (hourly variable)
-  - Fixed contract prices
-- **Metrics Calculated:**
-  - Autarky rate (self-sufficiency)
-  - Spot price costs vs fixed price costs
-  - Revenue from exports
-  - Cost savings per kWh of battery capacity
-
-#### FR-SBMS-004: Time Resolution Management
-- **Description:** Automatic detection and handling of different time resolutions
-- **Supported Resolutions:** 15 min, 30 min, 60 min (hourly)
-- **Cost Alignment:** Automatic interpolation of hourly costs to data resolution
-
-**Technical Specifications:**
 ```python
-defaults = {
-    "fix_costs_per_kwh": 0.15 €/kWh
-    "capacity_kwh": 2000 kWh
-    "p_max_kw": 1000 kW
-    "marketing_costs": 0.0 €/kWh
+should_charge(context)     -> bool
+should_discharge(context)  -> bool
+should_export(context)     -> bool
+calculate_charge_amount(context)    -> float  # kWh
+calculate_discharge_amount(context) -> float  # kWh
+```
+
+The `context` dict passed at each timestep contains:
+- `index`, `timestamp` — position in time series
+- `renew`, `demand` — renewable generation and demand for this timestep (kWh)
+- `price`, `avg_price` — spot price and rolling reference price (€/kWh)
+- `current_storage`, `capacity`, `soc` — battery state
+- `resolution`, `power_limit` — timestep duration (h) and power ceiling (kW)
+
+---
+
+#### BatteryManagementSystem (`core/bms.py`)
+
+Orchestrates one simulation run: routes each timestep through the strategy and the battery.
+
+**Decision priority (exclusive, evaluated in order):**
+1. **Discharge** — export renewable generation + battery energy to grid
+2. **Charge** — store renewable energy in battery; remaining surplus exported if `should_export`
+3. **Export** — export renewable energy without touching battery
+4. **Idle** — energy is wasted (curtailed)
+
+Residual demand (unsatisfied consumption) is calculated as:
+```
+residual_kwh = max(0,  |demand| - renew - net_discharge)
+```
+
+Tracks a boolean `export_flags` array (one entry per timestep) recording when energy was exported.
+
+---
+
+#### BatteryAnalytics (`core/analytics.py`)
+
+Loads spot prices, aligns them to the simulation time grid, and calculates financial metrics across multiple capacity scenarios.
+
+**Price loading:**
+- Source file: `costs/{year}-hour-price.csv`
+- Unit conversion: ct/kWh → €/kWh
+- Reference price `avrgprice`: centred rolling 25-hour average over spot prices
+- Marketing cost adjustment applied to both `price_per_kwh` and `avrgprice`
+- Year mismatch between cost file and configured `year` raises a `ValueError`
+- If `fix_contract: True`: both prices set to constant `fix_costs_per_kwh / 100`
+
+**Per-simulation metrics:**
+- `residual_kwh` — total unmet demand
+- `export_kwh` — total energy exported
+- `loss_kwh` — total I²R + efficiency losses
+- `autarky_rate = 1 − residual_kwh / total_demand`
+- `spot_cost_eur = Σ(residual_kwh[t] × price[t])`
+- `fix_cost_eur = residual_kwh × fix_costs_per_kwh / 100`
+- `revenue_eur = Σ(export_kwh[t] × (price[t] − marketing_costs))`
+- `net_profit_spot = revenue − spot_cost`
+- `net_profit_fix = revenue − fix_cost`
+
+---
+
+#### EnergyDriver (`core/driver.py`)
+
+Abstract base class for all data providers. Subclasses must:
+- Implement `load_data(data_source)` — populate `self._data` (DataFrame) with at least columns `my_renew` and `my_demand` (kWh per timestep) and a `DatetimeIndex`
+- Set `self.resolution` — timestep duration in hours
+
+---
+
+### 1.2 Drivers (`smard_utils/drivers/`)
+
+All drivers load German SMARD data in semicolon-separated CSV format with German decimal notation (`decimal=','`).
+
+**SMARD column mapping (shared across drivers):**
+
+| SMARD column (contains) | Internal name |
+|---|---|
+| `Wind Onshore [MWh]` | `wind_onshore` |
+| `Wind Offshore [MWh]` | `wind_offshore` |
+| `Photovoltaik [MWh]` | `solar` |
+| `Wasserkraft [MWh]` | `hydro` |
+| `Biomasse [MWh]` | `biomass` |
+| `Erdgas [MWh]` | `oel` |
+| `Gesamtverbrauch`/`Netzlast` | `total_demand` |
+
+---
+
+#### BiogasDriver
+
+**Use case:** Biogas plant — constant-output, no consumer demand.
+
+- `my_renew = constant_biogas_kw × resolution` (kWh per timestep, constant)
+- `my_demand = 0` (production-only scenario)
+- Applies `remove_holes_from_data()`: replaces `DateTime` column with evenly-spaced timestamps computed from start, end, and average step size
+
+---
+
+#### SolarDriver
+
+**Use case:** Solar PV park — proportional scaling of solar/wind from SMARD, proportional scaling of regional demand.
+
+Scaling:
+```
+my_demand[t] = total_demand[t] × year_demand_mwh / sum(total_demand) × resolution
+my_renew[t]  = wind_onshore[t] × wind_nominal_power / max(wind_onshore)  × resolution
+             + solar[t]        × solar_max_power    / max(solar)         × resolution
+```
+
+`year_demand` is interpreted as kWh (converted to MWh for the `my_demand` calculation).
+
+---
+
+#### CommunityDriver
+
+**Use case:** Residential community (solar + wind + real demand).
+
+Thin subclass of `SolarDriver`. After calling `SolarDriver.load_data()`, multiplies `my_demand` by 1000 to convert from MWh back to kWh, ensuring demand and generation share the same unit.
+
+Default region: `_lu` (Luxembourg).
+
+---
+
+#### SenecDriver
+
+**Use case:** Home battery validation against real SENEC monitoring data.
+
+- Loads SENEC CSV (semicolon-separated)
+- `my_renew = act_solar_kw × resolution`
+- `my_demand = act_total_demand_kw × resolution`
+- Resolution is computed from the average timestep between consecutive records (variable)
+- Also preserves `act_battery_inflow`, `act_battery_exflow` for model validation
+
+---
+
+### 1.3 BMS Strategies (`smard_utils/bms_strategies/`)
+
+#### PriceThresholdStrategy
+
+**Used by:** `BioBatSys` (default)
+
+Control logic based on current price vs. rolling 25-hour average:
+
+```
+should_discharge: price >= load_threshold × avg_price
+should_charge:    price <  load_threshold × avg_price
+should_export:    always False (biogas: only exports while discharging)
+```
+
+**Key parameter:** `load_threshold` (default: 1.0) — the multiplier on `avg_price` that separates charge from discharge hours.
+
+Charge amount: `min(renew, power_limit × dt, (max_soc × capacity) − storage)`
+Discharge amount: `min(power_limit × dt, storage − min_soc × capacity)`
+
+---
+
+#### DynamicDischargeStrategy
+
+**Used by:** `SolBatSys`, `SmardAnalyseSys` (default)
+
+Computes a daily 24-hour price ranking, normalised to a discharge factor `df ∈ [−1, 1]`. Updated daily at 13:00.
+
+```
+df < 0              → charge (low-price hours)
+df > df_min (0.7)   → discharge (top ~30 % of daily prices)
+otherwise           → export if price >= 0 and control_exflow > 1
+```
+
+Discharge amount is modulated by a concave saturation curve:
+```
+u       = (df − df_min) / (1 − df_min)
+factor  = 1 − (1 − u)³           # steepness parameter df_param = 3
+amount  = factor × allowed_energy
+```
+
+**Key parameter:** `limit_soc_threshold` (default: 0.05) — SOC operating window around min/max limits.
+**Key parameter:** `control_exflow` (default: 3) — 0 = no export, 1 = no export, ≥ 2 = export when price ≥ 0.
+
+---
+
+#### DayAheadStrategy
+
+**Used by:** `BioBatSys`, `SolBatSys`, `SmardAnalyseSys` (optional, via `--strategy day_ahead`)
+
+Simulates realistic day-ahead market operation with explicit information constraints:
+
+- At simulation start and at **13:00 each day**: receives the next day's 24 hourly prices (EPEX Spot day-ahead auction)
+- Plans a per-hour schedule (`charge` / `discharge` / `idle`) based only on prices known at that moment
+- Average of the known price window is the reference
+
+```
+price >= discharge_threshold × known_avg  → discharge
+price <= charge_threshold    × known_avg  → charge
+otherwise                                  → idle
+```
+
+Discharge amount uses the same concave modulation as DayAheadStrategy but relative to `known_avg`:
+```
+intensity = (price_ratio − discharge_threshold) / (2.0 − discharge_threshold)
+factor    = 1 − (1 − intensity)³
+```
+
+**Key parameters:**
+- `discharge_threshold` (default: 1.2) — price must be ≥ 120 % of window average to discharge
+- `charge_threshold` (default: 0.8) — price must be ≤ 80 % of window average to charge
+- `control_exflow` (default: 3) — same as DynamicDischargeStrategy
+
+---
+
+### 1.4 Applications
+
+#### BioBatSys (`smard_utils/biobatsys.py`)
+
+**Scenario:** Biogas CHP plant (1 MW constant output) trading generated electricity on the EPEX Spot market.
+
+**Primary economic goal:** Maximise revenue from spot-market arbitrage plus EEG Flexibilisierungsprämie.
+
+**EEG Flexibilisierungsprämie logic:**
+- Annual flex bonus = `constant_biogas_kw × flex_add_per_kwh` [€/year]
+- Bonus is earned **only if** the plant operates flexibly: `export_hours < min_flex_hours`
+- Default `min_flex_hours = 4380` (half a year → plant is not running at full capacity all the time)
+- If `export_hours >= min_flex_hours`, no bonus applies (plant runs like a base-load plant)
+
+**Output table columns:** `cap MWh`, `exfl MWh`, `export [h]`, `rev [T€]`, `revadd [T€]`, `rev €/kWh`
+
+Default configuration:
+```python
+{
+    "year": 2024,
+    "fix_costs_per_kwh": 11,      # ct/kWh (used only if fix_contract=True)
+    "constant_biogas_kw": 1000,   # kW constant biogas power
+    "fix_contract": False,        # use spot prices
+    "marketing_costs": -0.003,    # €/kWh (negative = cost to producer)
+    "flex_add_per_kwh": 100,      # €/kW/year flex premium
+    "flex_factor": 3,             # capacity expansion factor (informational)
+    "load_threshold": 1.0,        # price threshold multiplier
+    "load_threshold_hytheresis": 0.0,
+    "control_exflow": 0,
 }
 ```
 
 ---
 
-## 2. Battery Model Layer
+#### SolBatSys (`smard_utils/solbatsys.py`)
 
-### 2.1 Core Battery Models (`battery_model.py`)
+**Scenario:** Large solar PV park (≥ 1 MWp) with battery, selling electricity on the spot market.
 
-**Purpose:** Physical battery models with various control strategies
+**Primary economic goal:** Maximise revenue by shifting export from low-price to high-price hours.
 
-#### FR-BAT-001: Base Battery Model
-- **Class:** `BatteryModel`
-- **Physical Parameters:**
-  - Battery capacity (kWh)
-  - Max power (kW) or C-rate
-  - Internal resistance (R₀ in Ω)
-  - Nominal voltage (V)
-  - Charge/discharge efficiency (default: 96%)
-  - Self-discharge rate (default: 0.05% per hour)
-  - SOC limits (default: 5% min, 95% max)
+**Baseline comparison:** "always export" — all generation immediately exported at current price, no battery.
 
-#### FR-BAT-002: Loss Modeling
-- **I²R Losses:** `loss = (I² × R₀ × time) / 1000` kWh
-- **Self-Discharge:** `storage *= (1 - battery_discharge * dt_h)`
-- **Efficiency Losses:**
-  - Charging: `stored_energy = actual_charge × efficiency_charge`
-  - Discharging: `outflow = discharge × efficiency_discharge`
+**Output table columns:** `cap MWh`, `exfl MWh`, `export [h]`, `rev [T€]`, `revadd [T€]`, `rev €/kWh`
 
-#### FR-BAT-003: Advanced Control Models
-- **BatterySourceModel:** Price-threshold based control with hysteresis
-- **BatterySolBatModel:** Solar battery with dynamic discharge factor
-- **BatteryRawBatModel:** Simple balancing model for demand-supply matching
-
-#### FR-BAT-004: Dynamic Discharge Factor
-- **Description:** Time-based discharge optimization
-- **Method:** Daily price sorting to determine discharge intensity
-- **Function:** Concave saturation curve from 0 (low price hours) to 1 (high price hours)
-- **Update Frequency:** Daily at 13:00
-
-**Balance Modes:**
+Default configuration:
 ```python
-class Balance(Enum):
-    NONE = 0    # No action
-    LOAD = 1    # Charging
-    UNLOAD = 2  # Discharging
-    EXPORT = 3  # Direct export
+{
+    "year": 2024,
+    "fix_costs_per_kwh": 11,
+    "year_demand": -100000,       # negative = production-only scenario
+    "solar_max_power": 10000,     # kW peak
+    "wind_nominal_power": 0,
+    "fix_contract": False,
+    "marketing_costs": -0.003,
+}
 ```
 
 ---
 
-## 3. Simulation and Analysis Layer
+#### SmardAnalyseSys / Community (`smard_utils/community.py`)
 
-### 3.1 Battery Simulation (`battery_simulation.py`)
+**Scenario:** Residential community of ~6000 households with shared solar + wind generation, evaluated against actual electricity demand.
 
-**Purpose:** Main simulation engine for battery operation
+**Primary economic goals:**
+1. Maximise autarky (self-sufficiency rate)
+2. Minimise electricity procurement cost (compare spot vs. fixed-price contracts)
+3. Quantify cost savings per kWh of battery capacity
 
-#### FR-SIM-001: Simulation Loop
-- **Process:**
-  1. Initialize battery at 50% SOC
-  2. For each time step:
-     - Calculate energy balance
-     - Determine charging/discharging strategy
-     - Apply battery model
-     - Record state and flows
-     - Update storage level
+**Baseline rows in output:**
+- `no renew` — all demand covered from grid, no renewable generation
+- `no bat` — renewable generation without battery (surplus curtailed or exported)
 
-#### FR-SIM-002: Output Metrics
-- **Per Time Step:**
-  - Storage level (kWh)
-  - Inflow (kWh)
-  - Outflow (kWh)
-  - Residual demand (kWh)
-  - Export flow (kWh)
-  - Losses (kWh)
+**Output table columns:** `cap MWh`, `resi MWh`, `exfl MWh`, `autarky`, `spp [T€]`, `fixp [T€]`, `sp €/kWh`, `fp €/kWh`
 
-- **Aggregate:**
-  - Total autarky rate
-  - Spot price costs (€)
-  - Fixed price costs (€)
-  - Revenue from exports (€)
-
-#### FR-SIM-003: Multi-Capacity Analysis
-- **Description:** Compare battery performance across multiple capacities
-- **Typical Range:** 1 MWh to 100 MWh
-- **Power Scaling:** Configurable power-to-capacity ratio (default: 0.5)
+Default configuration:
+```python
+{
+    "year": 2024,
+    "fix_costs_per_kwh": 11,          # ct/kWh
+    "year_demand": 2804 * 1000 * 6,   # kWh/year (6000 households × 2804 kWh)
+    "solar_max_power": 5000,          # kW peak
+    "wind_nominal_power": 5000,       # kW nominal
+    "fix_contract": False,
+    "marketing_costs": 0.003,         # €/kWh (positive = cost when selling)
+    "battery_discharge": 0.0005,
+}
+```
 
 ---
 
-### 3.2 SMARD Analysis Framework (`smard_analyse.py`)
+## 2. Data Acquisition
 
-**Purpose:** Integration with German SMARD energy market data
+### SMARD Downloader (`smard_utils/smard_downloader.py`)
 
-#### FR-SMARD-001: Data Loading
-- **Source:** CSV files from SMARD.de API
-- **Format:** German CSV (semicolon separator, comma decimal)
-- **Required Columns:**
-  - DateTime (date + time)
-  - Wind Onshore [MWh]
-  - Wind Offshore [MWh]
-  - Photovoltaik [MWh]
-  - Biomasse [MWh]
-  - Wasserkraft [MWh]
-  - Gesamtverbrauch/Netzlast [MWh]
-  - Erdgas [MWh]
+Downloads generation data from the SMARD.de REST API.
 
-#### FR-SMARD-002: Scaling and Normalization
-- **Regional Scaling:**
-  - Germany: 130 GW solar, 63 GW wind
-  - Luxembourg: 326 MW solar, 208 MW wind
-- **Demand Scaling:** Proportional scaling based on annual demand
-- **Renewable Scaling:** Based on installed capacity ratios
+- **Endpoint:** `https://www.smard.de/nip-download-manager/nip/download/market-data` (POST)
+- **Format:** ZIP archive containing semicolon-separated CSV with German number format
+- **Chunking:** 14-day intervals (API limit)
+- **Rate limiting:** 1-second delay between requests
+- **Module IDs:** Wind Onshore, Wind Offshore, Solar, Hydro, Biomass, Gas, Pumped Hydro, Nuclear, Load, Cross-border flows
 
-#### FR-SMARD-003: Price Integration
-- **Source:** Hourly spot prices from `costs/{year}-hour-price.csv`
-- **Processing:**
-  - Convert from ct/kWh to €/kWh
-  - Calculate rolling average price (25-hour window)
-  - Apply marketing costs adjustment
-- **Interpolation:** Map hourly prices to data time resolution
+Output: `Stromerzeugung_{YYYYMMDD}_{YYYYMMDD}.csv` per chunk, merged into quarterly files.
 
-#### FR-SMARD-004: Results Visualization
-- **Plots:**
-  - Renewable generation vs demand
-  - Energy balance (surplus/deficit)
-  - Battery storage level over time
-  - Residual demand after battery
+### Price Data
+
+Hourly spot prices from `costs/{year}-hour-price.csv`:
+- Column `time` — timestamp
+- Column `price` — price in ct/kWh
+- Analytics converts to €/kWh at load time
 
 ---
 
-### 3.3 Solar Battery System (`solbatsys.py`)
+## 3. CLI Interface
 
-**Purpose:** Solar PV + battery storage analysis
+Entry points (defined in `setup.py`):
 
-#### FR-SOL-001: Solar-Optimized Strategy
-- **Battery Model:** `BatterySolBatModel`
-- **Control Strategy:**
-  - Load when discharge_factor < 0 and SOC permits
-  - Export when discharge_factor > threshold and SOC sufficient
-  - Conditional export based on price and control_exflow setting
+| Command | Module | Default strategy | Default region |
+|---|---|---|---|
+| `biobatsys` | `biobatsys:main` | `price_threshold` | `de` |
+| `solbatsys` | `solbatsys:main` | `dynamic_discharge` | `de` |
+| `community` | `community:main` | `dynamic_discharge` | `lu` |
 
-#### FR-SOL-002: Revenue Optimization
-- **Metrics:**
-  - Always-export baseline revenue
-  - Optimized export with battery revenue
-  - Revenue gain per kWh capacity
-  - Export hour reduction
+Common arguments:
+```
+-s / --strategy   {price_threshold, dynamic_discharge, day_ahead}
+-r / --region     region code without underscore (e.g. de, lu)
+-d / --data       path to SMARD CSV file (auto-detected from region if omitted)
+-y / --year       override year for price data
+```
 
-#### FR-SOL-003: Export Control Modes
-- **control_exflow Parameter:**
-  - 0: No automatic export
-  - 1: Export on positive price
-  - 3: Full export optimization
+Data file auto-detection pattern: `quarterly/smard_data_{region}/smard_2024_complete.csv`
 
 ---
 
-## 4. Data Acquisition Layer
+## 4. Non-Functional Requirements
 
-### 4.1 SMARD Downloader (`smard_downloader.py`)
+### Performance
 
-**Purpose:** Download energy generation data from SMARD.de API
+- Process one full year of 15-minute data (35 040 timesteps × N capacity scenarios) without row-iteration over DataFrames
+- Price alignment uses vectorised index arithmetic, not merge/join
 
-#### FR-DOWN-001: API Integration
-- **Endpoint:** `https://www.smard.de/nip-download-manager/nip/download/market-data`
-- **Method:** POST with form-encoded JSON request
-- **Format:** ZIP file containing CSV data
-- **Module IDs:**
-  ```python
-  [1004066, 1004067, 1004068, 1001223, 1004069, 1004071,
-   1004070, 1001226, 1001228, 1001227, 1001225, 2005097,
-   5000410, 6000411]
-  ```
+### Data Quality
 
-#### FR-DOWN-002: Date Range Handling
-- **Chunking:** 14-day chunks to comply with API limits
-- **Iteration:** Automatic date progression
-- **Rate Limiting:** 1-second delay between requests
+- Missing timestamps in SMARD data: linear interpolation of timestamps via `remove_holes_from_data()`
+- Missing numeric values: filled with 0
+- NaN in price data: filled with global average price
 
-#### FR-DOWN-003: Output Management
-- **File Naming:** `Stromerzeugung_{YYYYMMDD}_{YYYYMMDD}.csv`
-- **Directory:** Configurable output directory
-- **Extraction:** Automatic ZIP extraction and file renaming
+### Correctness
+
+- SOC must stay within `[min_soc, max_soc]` at all times
+- Energy conservation: `Δstorage = stored_energy − delivered_energy − self_discharge`
+- Year mismatch between `basic_data_set["year"]` and price file raises `ValueError`
+
+### Extensibility
+
+- New driver: subclass `EnergyDriver`, implement `load_data()`, set `resolution` and `_data`
+- New strategy: subclass `BMSStrategy`, implement all five abstract methods
+- New application: compose `Battery + BMSStrategy + EnergyDriver + BatteryAnalytics`
 
 ---
 
-### 4.2 European Grid Analysis (`european_grid_analysis.py`)
+## 5. Testing
 
-**Purpose:** Cross-border energy trade analysis
+### Unit tests (`tests/`)
 
-#### FR-EURO-001: Interconnection Modeling
-- **Connections:**
-  - Denmark: 25 GW offshore wind
-  - Norway: 15 GW hydro storage
-  - France: 10 GW nuclear (configurable)
-  - Netherlands: 8 GW offshore wind
-  - Regional: 12 GW balancing
+| Test file | Scope |
+|---|---|
+| `test_core_battery.py` | Battery physics: SOC limits, I²R losses, self-discharge, efficiency |
+| `test_core_bms.py` | BMS decision tree: priority order, export flag tracking |
+| `test_core_analytics.py` | Price loading, autarky calculation, revenue calculation |
+| `test_drivers.py` | Driver data loading, column mapping, resolution calculation |
+| `test_strategies.py` | Strategy decisions: PriceThreshold, DynamicDischarge |
+| `test_day_ahead_strategy.py` | Day-ahead information boundary: 13:00 update, schedule planning |
+| `test_integration.py` | End-to-end simulation with real-like data |
 
-#### FR-EURO-002: Seasonal Patterns
-- **Winter Peak:** Danish/Dutch wind
-- **Summer Peak:** Norwegian hydro
-- **Constant:** French nuclear baseload
-- **Variable:** Regional balancing
+### Key invariants to verify
 
-#### FR-EURO-003: Scenario Analysis
-- **Expansion Factors:** Configurable wind/solar expansion (default: 2×)
-- **Import Availability:** Based on capacity factors and seasonal patterns
-- **Balance Calculation:** German demand vs (German renewables + imports)
-
----
-
-### 4.3 SENEC Home Battery Analysis (`senec_analyes.py`)
-
-**Purpose:** Residential battery system analysis using real SENEC monitoring data
-
-#### FR-SENEC-001: Data Import
-- **Source:** SENEC home battery monitoring CSV
-- **Columns:**
-  - Grid import/export (kW)
-  - Consumption (kW)
-  - Battery charge/discharge (kW)
-  - PV generation (kW)
-  - Battery voltage/current
-
-#### FR-SENEC-002: Validation Analysis
-- **Actual vs Simulated:**
-  - Compare real battery behavior with model
-  - Validate charge/discharge patterns
-  - Check efficiency assumptions
-
-#### FR-SENEC-003: Residential Metrics
-- **Capacity Range:** 5-10 kWh typical
-- **Power Range:** 2.5-5 kW
-- **Time Resolution:** Variable (typically 5-15 minutes)
-
----
-
-## 5. Non-Functional Requirements
-
-### 5.1 Performance
-
-**NFR-PERF-001: Processing Speed**
-- **Requirement:** Process 1 year of hourly data (8760 points) in < 10 seconds
-- **Optimization:** Vectorized pandas/numpy operations
-- **Avoided:** Row-by-row DataFrame iteration
-
-**NFR-PERF-002: Memory Usage**
-- **Requirement:** Maximum 2 GB RAM for typical analysis
-- **Data Size:** ~35,000 hourly records (4 years) should be manageable
-
-### 5.2 Data Quality
-
-**NFR-DATA-001: Missing Data Handling**
-- **Holes in Time Series:** Linear interpolation or average difference
-- **Missing Columns:** Fill with zeros
-- **Price Data:** Fill gaps with average price
-
-**NFR-DATA-002: Data Validation**
-- **Year Matching:** Verify cost data matches simulation year
-- **Range Checks:** Ensure SOC stays within [min_soc, max_soc]
-- **Energy Conservation:** Track and report losses separately
-
-### 5.3 Usability
-
-**NFR-USE-001: Command Line Interface**
-- **Scripts:** `smard`, `biobatsys`, `solbatsys`, `senec`
-- **Arguments:** Region selection, file paths, capacity ranges
-- **Output:** Formatted tables with unicode symbols (€, T€, MWh)
-
-**NFR-USE-002: Configuration**
-- **Method:** Dictionary-based `basic_data_set`
-- **Defaults:** Sensible defaults for all parameters
-- **Override:** Easy parameter override per use case
-
-### 5.4 Extensibility
-
-**NFR-EXT-001: Battery Model Plugins**
-- **Base Class:** `BatteryModel` provides standard interface
-- **Custom Models:** Easy to subclass and override `loading_strategie()`
-- **Hot-Swap:** Battery model passed as parameter to analysis
-
-**NFR-EXT-002: Management System Plugins**
-- **Interface:** `BatteryManagementSystem` base class
-- **Strategy Pattern:** Separate control logic from battery physics
-- **Testing:** Easy to test strategies independently
+- Energy balance: `export + residual + stored + losses ≈ renew + prior_storage`
+- Autarky: strictly increases with battery capacity (for constant renewable input)
+- No negative exports or residuals
+- Day-ahead strategy: decisions after 13:00 may use tomorrow's prices; decisions before 13:00 may not
 
 ---
 
 ## 6. Dependencies
 
-### 6.1 Core Dependencies
-```python
-pandas >= 1.0.0          # Data manipulation
-numpy >= 1.18.0          # Numerical operations
-matplotlib >= 3.0.0      # Plotting
-seaborn                  # Statistical visualization
 ```
-
-### 6.2 Optional Dependencies
-```python
-pytest                   # Testing framework
-pytest-cov              # Coverage reporting
-```
-
-### 6.3 External Data Sources
-- SMARD.de API (German energy market data)
-- Energy spot price data (hourly CSV files)
-- SENEC monitoring data (for validation)
-
----
-
-## 7. Testing Requirements
-
-### 7.1 Unit Tests
-
-**TEST-001: Battery Model Physics**
-- Verify energy conservation (input = output + losses + storage_change)
-- Check SOC limits enforcement
-- Validate loss calculations (I²R losses)
-
-**TEST-002: Price-Based Strategies**
-- Test hysteresis behavior
-- Verify threshold comparisons
-- Check export control logic
-
-**TEST-003: Data Loading**
-- Handle various CSV formats
-- Manage missing data
-- Validate date parsing
-
-### 7.2 Integration Tests
-
-**TEST-004: End-to-End Simulation**
-- Load real SMARD data
-- Run full year simulation
-- Verify output metrics consistency
-
-**TEST-005: Multi-Scenario Analysis**
-- Compare different battery capacities
-- Validate autarky rate calculations
-- Check revenue computations
-
----
-
-## 8. Documentation Requirements
-
-### 8.1 Code Documentation
-
-**DOC-001: Docstrings**
-- All public functions require docstrings
-- Parameter descriptions with types
-- Return value descriptions
-
-**DOC-002: Inline Comments**
-- Complex algorithms explained
-- Physical formulas documented
-- Unit specifications clearly marked
-
-### 8.2 User Documentation
-
-**DOC-003: Usage Examples**
-- Basic usage for each main module
-- Configuration examples
-- Typical workflows
-
-**DOC-004: Parameter Reference**
-- Complete list of configuration parameters
-- Default values
-- Units and valid ranges
-
----
-
-## 9. Future Enhancements
-
-### 9.1 Planned Features
-
-**FUTURE-001: Real-Time Optimization**
-- Day-ahead price forecasting
-- Optimal charge/discharge scheduling
-- MPC (Model Predictive Control) integration
-
-**FUTURE-002: Degradation Modeling**
-- Battery aging based on cycles
-- Capacity fade over time
-- Cost of replacement
-
-**FUTURE-003: Multi-Battery Coordination**
-- Virtual power plant (VPP) scenarios
-- Distributed storage optimization
-- Regional grid balancing
-
-**FUTURE-004: Enhanced Economics**
-- Detailed CAPEX/OPEX modeling
-- NPV and IRR calculations
-- Sensitivity analysis
-
----
-
-## 10. Key Equations and Formulas
-
-### 10.1 Battery Physics
-
-**Energy Balance:**
-```
-Δstorage = inflow - outflow - losses
-```
-
-**Charging:**
-```
-stored_energy = (actual_charge - I²R_loss) × η_charge
-actual_charge = min(renewable_surplus, power_limit × Δt, capacity - SOC)
-```
-
-**Discharging:**
-```
-delivered_energy = (discharge_from_storage - I²R_loss) × η_discharge
-discharge_from_storage = min(demand, power_limit × Δt, SOC - min_SOC)
-```
-
-**I²R Losses:**
-```
-P_loss = I² × R₀
-I = P / U_nominal
-E_loss = P_loss × Δt
-```
-
-**Self-Discharge:**
-```
-SOC(t+Δt) = SOC(t) × (1 - λ × Δt)
-where λ = battery_discharge rate
-```
-
-### 10.2 Economic Metrics
-
-**Autarky Rate:**
-```
-autarky = 1 - (Σ residual_demand / Σ total_demand)
-```
-
-**Revenue:**
-```
-revenue = Σ(export_energy × spot_price) - marketing_costs
-```
-
-**Cost per kWh Capacity:**
-```
-cost_effectiveness = (revenue_gain - baseline_revenue) / battery_capacity
+pandas >= 1.0       # data manipulation and time series
+numpy >= 1.18       # numerical operations
+matplotlib          # plotting (optional, for diagnostics)
+pytest              # test framework
+pytest-cov          # coverage
 ```
 
 ---
 
-## 11. Configuration Examples
+## 7. Output Format Reference
 
-### 11.1 Biogas Plant (BioBatSys)
-```python
-basic_data_set = {
-    "year": 2024,
-    "fix_costs_per_kwh": 11,                # ct/kWh
-    "constant_biogas_kw": 1000,             # kW constant generation
-    "fix_contract": False,                  # Use spot prices
-    "marketing_costs": -0.003,              # €/kWh trading cost
-    "flex_add_per_kwh": 100,                # € flexibilization premium
-    "flex_factor": 3,                       # Capacity expansion factor
-    "load_threshold": 1.0,                  # Price threshold multiplier
-    "load_threshold_hytheresis": 0.0,       # Hysteresis band
-}
+### BioBatSys / SolBatSys — revenue table
+
+```
+cap MWh   exfl MWh   export [h]   rev [T€]   revadd [T€]   rev €/kWh
+no rule       13.4         8760      603.8           nn            nn
+1.0           13.4         8432      608.2          4.4           4.4
+5.0           13.2         7980      625.9         22.1           4.4
+10.0          13.0         7510      645.1         41.3           4.1
 ```
 
-### 11.2 Solar + Storage (SolBatSys)
-```python
-basic_data_set = {
-    "year": 2024,
-    "fix_costs_per_kwh": 11,
-    "year_demand": -100000,                 # Negative = production only
-    "solar_max_power": 10000,               # kW peak
-    "wind_nominal_power": 0,
-    "constant_biogas_kw": 0,
-    "fix_contract": False,
-    "marketing_costs": -0.003,
-    "control_exflow": 3,                    # Full export optimization
-    "limit_soc_threshold": 0.05,
-}
+- `no rule` / `always` — baseline without battery
+- `revadd` — revenue gain over baseline (including flex premium where applicable)
+- `rev €/kWh` — revenue gain per kWh of installed battery capacity
+
+### Community — cost/autarky table
+
 ```
-
-### 11.3 Home Battery (SENEC)
-```python
-basic_data_set = {
-    "year": 2024,
-    "fix_costs_per_kwh": 24,                # ct/kWh retail
-    "year_demand": 2804,                    # kWh annual
-    "solar_max_power": 3.7,                 # kW peak
-    "wind_nominal_power": 0,
-    "fix_contract": True,                   # Fixed retail price
-    "battery_discharge": 0.005,             # 0.5%/h
-    "efficiency_charge": 0.95,
-    "efficiency_discharge": 0.95,
-    "min_soc": 0.10,                        # 10% minimum
-    "max_soc": 0.90,                        # 90% maximum
-    "max_c_rate": 1.0,                      # 1C rate
-}
+cap MWh   resi MWh   exfl MWh   autarky   spp [T€]   fixp [T€]   sp €/kWh   fp €/kWh
+no renew   16824.0        0.0      0.00     1360.4      1850.6         0.00       0.00
+no bat      4868.1     5630.2      0.71      533.9       535.5         0.00       0.00
+0.1         4173.1     1582.6      0.75      175.7       459.0         3.58       0.77
+1.0         3955.9     1365.9      0.76      165.9       435.2         3.68       1.00
 ```
-
----
-
-## 12. Output Formats
-
-### 12.1 Console Output
-
-**Battery Results Table:**
-```
-cap MWh  exfl MWh  rev [T€]  revadd [T€]  rev €/kWh
-no rule     13.4     603.80        nn          nn
-1.0         13.4     608.23      4.43        4.43
-5.0         13.4     625.89     22.09        4.42
-10.0        13.4     645.12     41.32        4.13
-```
-
-### 12.2 DataFrame Outputs
-
-**Simulation Results:**
-- `capacity kWh`: Battery capacity
-- `residual kWh`: Unmet demand
-- `exflow kWh`: Energy exported to grid
-- `autarky rate`: Self-sufficiency ratio
-- `spot price [€]`: Costs at spot prices
-- `fix price [€]`: Costs at fixed price
-- `revenue [€]`: Revenue from exports
-- `loss kWh`: Total energy losses
 
 ---
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-02-11 | System Analysis | Initial requirements document |
-
----
-
-**End of Requirements Document**
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-02-11 | Initial requirements document (extracted from original design) |
+| 2.0 | 2026-02-19 | Full rewrite to match refactored modular architecture |

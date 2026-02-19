@@ -1,0 +1,10 @@
+Includes material from:
+
+- Leaflet.js (https://leafletjs.com/), BSD 2-Clause License
+- Leaflet-GPX (https://github.com/mpetazzoni/leaflet-gpx), MIT License
+- Flask (https://flask.palletsprojects.com/), BSD 3-Clause License
+- Flask-CORS (https://flask-cors.readthedocs.io/), MIT License
+
+As well as material from wikimedia:
+- https://commons.wikimedia.org/wiki/File:Wait.gif (CC BY-SA 3.0)
+- https://commons.wikimedia.org/wiki/File:WhatYouSeeIsWhatIGet.svg (CC BY-SA 4.0)

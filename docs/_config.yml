@@ -1,0 +1,13 @@
+baseurl: "/smard-utils"
+
+navigation:
+  - title: "Übersicht"
+    url: "/"
+  - title: "Biogas (biobatsys)"
+    url: "/biobatsys/"
+  - title: "Solar (solbatsys)"
+    url: "/solbatsys/"
+  - title: "Community"
+    url: "/community/"
+  - title: "Strategien"
+    url: "/strategies/"

@@ -1,0 +1,131 @@
+---
+layout: default
+title: Solbatsys – Solarpark
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-szenario">Szenario</a></li>
+      <li><a href="#sec-skalierung">Skalierung aus SMARD</a></li>
+      <li><a href="#sec-strategie">Ladestrategie</a></li>
+      <li><a href="#sec-konfiguration">Konfiguration</a></li>
+      <li><a href="#sec-befehle">Befehle</a></li>
+      <li><a href="#sec-ausgabe">Ausgabe</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
+      <li><a href="community.html">Community</a></li>
+      <li><a href="strategies.html">Strategien</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>solbatsys – Solarpark mit Batteriespeicher</h1>
+
+    <h2 id="sec-szenario">Szenario</h2>
+    <p>
+      Ein großer Solarpark (typisch: 10 MWp) vermarktet seinen Strom
+      direkt am EPEX-Spotmarkt. Ohne Speicher wird die gesamte erzeugte
+      Energie sofort zum aktuellen Preis eingespeist – oft zu Zeiten,
+      wenn viele Solaranlagen gleichzeitig einspeisen und die Preise
+      entsprechend niedrig sind.
+    </p>
+    <p>
+      Mit einem Batteriespeicher kann Energie von preisgünstigen
+      Mittagsstunden in preisstärkere Abend- oder Morgenstunden
+      verschoben werden.
+    </p>
+    <div class="info-box">
+      <strong>Kernfrage:</strong> Wie viel Mehrerlös (€/kWh Kapazität)
+      ergibt sich gegenüber der Strategie „alles sofort einspeisen"?
+    </div>
+
+    <h2 id="sec-skalierung">Skalierung aus SMARD-Daten</h2>
+    <p>
+      Die tatsächliche Erzeugung des Solarparks wird aus den SMARD-Daten
+      proportional hochgerechnet. Dabei gilt:
+    </p>
+    <pre>my_renew[t] = solar[t] × solar_max_power / max(solar)  (kWh/Zeitschritt)
+              + wind[t]  × wind_nominal_power / max(wind)  (kWh/Zeitschritt)</pre>
+    <p>
+      Die SMARD-Werte für ganz Deutschland (bzw. Luxemburg) dienen
+      als Referenzprofil; der Parameter <code>solar_max_power</code>
+      legt die installierte Spitzenleistung der eigenen Anlage fest.
+    </p>
+
+    <h2 id="sec-strategie">Ladestrategie</h2>
+    <p>
+      Die Standard-Strategie <code>dynamic_discharge</code> erstellt täglich
+      um 13:00 Uhr ein 24-Stunden-Preisranking und weist jeder Stunde
+      einen Entladefaktor zwischen −1 und +1 zu:
+    </p>
+    <table>
+      <tr><th>Entladefaktor</th><th>Aktion</th></tr>
+      <tr><td>&lt; 0 (günstige Stunden)</td><td>Laden (Überschuss in Batterie)</td></tr>
+      <tr><td>&gt; 0,7 (teuerste ~30 %)</td><td>Entladen mit Sättigungskurve</td></tr>
+      <tr><td>0 … 0,7</td><td>Direkte Einspeisung (wenn Preis ≥ 0)</td></tr>
+    </table>
+    <p>
+      Die Entlademenge wird durch eine konkave Sättigungskurve moduliert –
+      je teurer die Stunde relativ zum Tagesmaximum, desto mehr wird entladen.
+      Details: <a href="strategies.html#sec-dynamic">Strategie dynamic_discharge</a>.
+    </p>
+
+    <h2 id="sec-konfiguration">Konfiguration</h2>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>solar_max_power</code></td><td>10 000</td><td>Installierte Solarleistung (kW)</td></tr>
+      <tr><td><code>wind_nominal_power</code></td><td>0</td><td>Installierte Windleistung (kW)</td></tr>
+      <tr><td><code>year_demand</code></td><td>−100 000</td><td>Negativ = reiner Erzeugungsbetrieb (kein Verbrauch)</td></tr>
+      <tr><td><code>marketing_costs</code></td><td>−0,003</td><td>Vermarktungskosten (€/kWh)</td></tr>
+      <tr><td><code>fix_costs_per_kwh</code></td><td>11</td><td>Referenz-Fixpreis (ct/kWh)</td></tr>
+      <tr><td><code>year</code></td><td>2024</td><td>Jahr der Preisdaten</td></tr>
+    </table>
+
+    <h2 id="sec-befehle">Befehle</h2>
+    <pre># Standard: dynamic_discharge, Deutschland
+solbatsys
+
+# Tag-zuvor-Strategie
+solbatsys -s day_ahead
+
+# Luxemburg-Profil, eigene Datei
+solbatsys -r lu -d quarterly/smard_data_lu/smard_2024_complete.csv
+
+# Hilfe
+solbatsys -h</pre>
+
+    <h2 id="sec-ausgabe">Ausgabe</h2>
+    <p>
+      Als Referenzzeile wird <code>always</code> ausgegeben –
+      das entspricht einer sofortigen Einspeisung ohne Speicher
+      (theoretisches Maximum der Einspeisemenge).
+    </p>
+    <pre>  cap MWh  exfl MWh  export [h]  rev [T€]  revadd [T€]  rev €/kWh
+   always    8760.0        8760     603.8        13.64          nn
+      0.0    8760.0        8760     590.1         0.00        0.00
+      1.0    8621.3        7842     598.4         8.30        8.30
+      5.0    8312.7        6950     614.9        24.8         4.96
+     10.0    7984.1        6120     623.1        33.0         3.30
+     20.0    7210.4        5230     628.7        38.6         1.93
+     50.0    5891.0        4310     630.9        40.8         0.82</pre>
+    <p>Spalten:</p>
+    <table>
+      <tr><th>Spalte</th><th>Bedeutung</th></tr>
+      <tr><td><code>cap MWh</code></td><td>Speicherkapazität (<code>always</code> = ungepuffert)</td></tr>
+      <tr><td><code>exfl MWh</code></td><td>Gesamteinspeisung (MWh/Jahr)</td></tr>
+      <tr><td><code>export [h]</code></td><td>Einspeisestunden</td></tr>
+      <tr><td><code>rev [T€]</code></td><td>Gesamterlös (T€/Jahr)</td></tr>
+      <tr><td><code>revadd [T€]</code></td><td>Mehrerlös vs. „no bat"-Zeile</td></tr>
+      <tr><td><code>rev €/kWh</code></td><td>Mehrerlös pro kWh Kapazität</td></tr>
+    </table>
+    <div class="info-box">
+      <strong>Hinweis:</strong> Die Zeile <code>0.0 MWh</code> entspricht einer
+      Einspeisung mit aktivierter Strategie, aber ohne Batteriekapazität.
+      Der Unterschied zu <code>always</code> zeigt den Steuerungsverlust
+      durch Energiecurtailment (Strategie verwirft Energie statt einzuspeisen).
+    </div>
+  </article>
+</section>

@@ -1,0 +1,159 @@
+---
+layout: default
+title: Community – Quartiersspeicher
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-szenario">Szenario</a></li>
+      <li><a href="#sec-metriken">Metriken</a></li>
+      <li><a href="#sec-konfiguration">Konfiguration</a></li>
+      <li><a href="#sec-befehle">Befehle</a></li>
+      <li><a href="#sec-ausgabe">Ausgabe</a></li>
+      <li><a href="#sec-erkenntnis">Erkenntnis</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
+      <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
+      <li><a href="strategies.html">Strategien</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>community – Quartiersspeicher</h1>
+
+    <h2 id="sec-szenario">Szenario</h2>
+    <p>
+      Ein Wohnquartier – typisch 5.000–6.000 Haushalte – erzeugt Strom
+      aus einer gemeinsamen Solar- und Windanlage und deckt damit
+      einen Teil des eigenen Verbrauchs.
+    </p>
+    <p>
+      Der Batteriespeicher dient hier nicht primär der Erlösmaximierung,
+      sondern der <strong>Autarkiesteigerung</strong>: Überschüsse
+      aus der Mittagspitze werden gepuffert und stehen abends zur
+      Verfügung, wenn Solarertrag und Windleistung nachlassen.
+    </p>
+    <p>
+      Das Tool bewertet, wie viel Strom vom Netz (zu Spot- oder
+      Fixpreisen) eingekauft werden muss und wie stark der
+      Speicher diesen Bedarf reduziert.
+    </p>
+    <div class="info-box">
+      <strong>Standardregion: Luxemburg (lu)</strong><br>
+      Die Erzeugungsprofile von SMARD (auf Luxemburger Größenordnung
+      herunterskaliert) dienen als Grundlage. Mit <code>-r de</code>
+      wird das deutsche Profil verwendet.
+    </div>
+
+    <h2 id="sec-metriken">Metriken</h2>
+    <table>
+      <tr><th>Kenngröße</th><th>Formel</th><th>Bedeutung</th></tr>
+      <tr>
+        <td>Autarkierate</td>
+        <td><code>1 − residual / verbrauch</code></td>
+        <td>Anteil des Verbrauchs, der aus Eigenerzeugung gedeckt wird</td>
+      </tr>
+      <tr>
+        <td>Spotpreis-Kosten</td>
+        <td><code>Σ (residual[t] × preis[t])</code></td>
+        <td>Netzstrombezug bewertet zu stündlichen Spotpreisen</td>
+      </tr>
+      <tr>
+        <td>Fixpreis-Kosten</td>
+        <td><code>residual × fix_costs_per_kwh / 100</code></td>
+        <td>Gleiche Restmenge zu einem festen Tarif</td>
+      </tr>
+      <tr>
+        <td>sp €/kWh</td>
+        <td><code>(sp₀ − sp) / kapazität</code></td>
+        <td>Spotpreis-Einsparung pro kWh Speicherkapazität</td>
+      </tr>
+      <tr>
+        <td>fp €/kWh</td>
+        <td><code>(fp₀ − fp) / kapazität</code></td>
+        <td>Fixpreis-Einsparung pro kWh Speicherkapazität</td>
+      </tr>
+    </table>
+    <p>
+      Zwei Referenzzeilen ermöglichen den Vergleich:
+    </p>
+    <ul>
+      <li><strong>no renew</strong>: gesamter Verbrauch vom Netz, kein Erneuerbaren-Anteil</li>
+      <li><strong>no bat</strong>: Erneuerbare vorhanden, aber kein Speicher –
+          Überschüsse werden curtailed (oder eingespeist)</li>
+    </ul>
+
+    <h2 id="sec-konfiguration">Konfiguration</h2>
+    <table>
+      <tr><th>Parameter</th><th>Standard (Luxemburg)</th><th>Bedeutung</th></tr>
+      <tr><td><code>year_demand</code></td><td>2 804 × 1 000 × 6</td><td>Jahresverbrauch (kWh) – hier 6 000 Haushalte × 2 804 kWh</td></tr>
+      <tr><td><code>solar_max_power</code></td><td>5 000</td><td>Installierte Solarleistung (kW)</td></tr>
+      <tr><td><code>wind_nominal_power</code></td><td>5 000</td><td>Installierte Windleistung (kW)</td></tr>
+      <tr><td><code>fix_costs_per_kwh</code></td><td>11</td><td>Referenz-Netzstrompreis (ct/kWh)</td></tr>
+      <tr><td><code>marketing_costs</code></td><td>0,003</td><td>Vermarktungskosten beim Verkauf (€/kWh)</td></tr>
+      <tr><td><code>year</code></td><td>2024</td><td>Jahr der Spotpreisdaten</td></tr>
+    </table>
+
+    <h2 id="sec-befehle">Befehle</h2>
+    <pre># Standard: dynamic_discharge, Luxemburg
+community
+
+# Tag-zuvor-Strategie
+community -s day_ahead
+
+# Deutschland-Profil
+community -r de
+
+# Eigene Datei
+community -d quarterly/smard_data_lu/smard_2024_complete.csv
+
+# Hilfe
+community -h</pre>
+
+    <h2 id="sec-ausgabe">Ausgabe</h2>
+    <p>Zuerst erscheint eine Zusammenfassung der Eingangsdaten:</p>
+    <pre>reference region: _lu, demand: 16.82 GWh, solar: 3.24 GWh, wind 4.61 GWh
+total demand: 16824.0 MWh   total Renewable_Source: 5630.2 MWh</pre>
+    <p>Dann die Ergebnistabelle:</p>
+    <pre>  cap MWh  resi MWh  exfl MWh  autarky  spp [T€]  fixp [T€]  sp €/kWh  fp €/kWh
+  no renew  16824.0       0.0     0.00    1360.4     1850.6      0.00      0.00
+    no bat   4868.1    5630.2     0.71     533.9      535.5      0.00      0.00
+       0.1   4173.1    1582.6     0.75     175.7      459.0      3.58      0.77
+       1.0   3955.9    1365.9     0.76     165.9      435.2      3.68      1.00
+       5.0   3388.7     800.7     0.80     149.6      372.8      3.68      0.81
+      10.0   2716.8     136.3     0.84     131.3      298.9      3.44      0.64
+      20.0   2116.4       0.0     0.87     118.2      233.0      2.98      0.51</pre>
+    <p>Spalten:</p>
+    <table>
+      <tr><th>Spalte</th><th>Bedeutung</th></tr>
+      <tr><td><code>cap MWh</code></td><td>Speicherkapazität</td></tr>
+      <tr><td><code>resi MWh</code></td><td>Reststrom vom Netz (MWh/Jahr)</td></tr>
+      <tr><td><code>exfl MWh</code></td><td>Überschuss-Einspeisung (MWh/Jahr)</td></tr>
+      <tr><td><code>autarky</code></td><td>Autarkierate (0–1)</td></tr>
+      <tr><td><code>spp [T€]</code></td><td>Netzstrombezugskosten zu Spotpreisen</td></tr>
+      <tr><td><code>fixp [T€]</code></td><td>Netzstrombezugskosten zu Fixpreis</td></tr>
+      <tr><td><code>sp €/kWh</code></td><td>Spotpreis-Einsparung je kWh Kapazität</td></tr>
+      <tr><td><code>fp €/kWh</code></td><td>Fixpreis-Einsparung je kWh Kapazität</td></tr>
+    </table>
+
+    <h2 id="sec-erkenntnis">Wichtige Erkenntnis: Kleine Speicher, große Wirkung</h2>
+    <div class="info-box">
+      <strong>Der Sweet-Spot liegt bei sehr kleinen Speichern:</strong>
+      Bereits 100 kWh reduzieren die Spotpreis-Kosten um ~358 T€ –
+      das entspricht einem Grenznutzen von ~3,58 €/kWh.
+      Bei 10 MWh ist der Grenznutzen auf ~3,44 €/kWh gesunken –
+      der Mehrwert wächst also kaum noch.
+    </div>
+    <p>
+      Hintergrund: In einem marktberuhigten Jahr (2024) sind die
+      Spotpreise deutlich weniger volatil als in Krisenjahren (2022–23).
+      Der Batteriespeicher lohnt sich primär als <strong>Autarkie-Instrument</strong>,
+      nicht als Arbitrage-Maschine. Ein kleiner Speicher gleicht die
+      tägliche Schwankung zwischen Solarspitze und Abendverbrauch aus –
+      das genügt für den Großteil des erreichbaren Nutzens.
+    </p>
+  </article>
+</section>
