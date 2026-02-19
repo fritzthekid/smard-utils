@@ -2,6 +2,8 @@
 
 Battery storage analysis for renewable energy systems using German SMARD market data.
 
+Get documentation under [smard-utils](https://fritzthekid.github.io/smard-utils/)
+
 ## Installation
 
 ```
