@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" font-family="Arial,Helvetica,sans-serif">
+  <!-- Background -->
+  <rect width="700" height="360" fill="#f4f4f4"/>
+
+  <!-- Top banner -->
+  <rect width="700" height="36" fill="#2c5f2d"/>
+  <text x="350" y="23" text-anchor="middle" fill="white" font-size="13" font-weight="bold">SMARD Utils – Biogas (BioBatSys)</text>
+
+  <!-- Left: Form panel -->
+  <rect x="12" y="46" width="270" height="300" rx="4" fill="white" stroke="#2c5f2d" stroke-width="2"/>
+
+  <!-- Form rows -->
+  <!-- Szenario -->
+  <text x="22" y="72" fill="#555" font-size="10" font-weight="bold">Szenario:</text>
+  <rect x="110" y="60" width="160" height="20" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="74" fill="#333" font-size="10">Biogas (BioBatSys)  ▾</text>
+
+  <!-- Strategie -->
+  <text x="22" y="100" fill="#555" font-size="10" font-weight="bold">Strategie:</text>
+  <rect x="110" y="88" width="160" height="20" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="102" fill="#333" font-size="10">price_threshold  ▾</text>
+
+  <!-- Region -->
+  <text x="22" y="128" fill="#555" font-size="10" font-weight="bold">Region:</text>
+  <rect x="110" y="116" width="160" height="20" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="130" fill="#333" font-size="10">de</text>
+
+  <!-- Kapazitäten -->
+  <text x="22" y="156" fill="#555" font-size="10" font-weight="bold">Kapazitäten [MWh]:</text>
+  <rect x="110" y="144" width="160" height="20" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="158" fill="#333" font-size="10">1, 5, 10, 20, 100</text>
+
+  <!-- Leistungen -->
+  <text x="22" y="184" fill="#555" font-size="10" font-weight="bold">Leistungen [MW]:</text>
+  <rect x="110" y="172" width="160" height="20" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="186" fill="#333" font-size="10">0.5, 2.5, 5, 10, 50</text>
+
+  <!-- Eigene Daten -->
+  <text x="22" y="212" fill="#555" font-size="10" font-weight="bold">SMARD-Daten (CSV):</text>
+  <rect x="110" y="200" width="160" height="20" rx="3" fill="#fafafa" stroke="#ccc" stroke-width="1"/>
+  <text x="118" y="214" fill="#999" font-size="10">Datei auswählen...</text>
+
+  <!-- Button -->
+  <rect x="60" y="232" width="160" height="28" rx="4" fill="#4caf50"/>
+  <text x="140" y="251" text-anchor="middle" fill="white" font-size="12" font-weight="bold">Analyse starten</text>
+
+  <!-- Right: Results panel -->
+  <rect x="294" y="46" width="395" height="300" rx="4" fill="white" stroke="#ccc" stroke-width="1"/>
+
+  <!-- Chart placeholder: two bar charts -->
+  <!-- Left mini chart: Revenue by capacity -->
+  <text x="360" y="68" text-anchor="middle" fill="#2c5f2d" font-size="10" font-weight="bold">Erlös nach Kapazität [T€]</text>
+  <!-- Axes -->
+  <line x1="310" y1="220" x2="310" y2="78" stroke="#999" stroke-width="1"/>
+  <line x1="310" y1="220" x2="480" y2="220" stroke="#999" stroke-width="1"/>
+  <!-- Bars (5 capacities) -->
+  <rect x="318" y="180" width="22" height="40"  fill="#2ecc71" opacity="0.85"/>
+  <rect x="350" y="150" width="22" height="70"  fill="#2ecc71" opacity="0.85"/>
+  <rect x="382" y="125" width="22" height="95"  fill="#2ecc71" opacity="0.85"/>
+  <rect x="414" y="95"  width="22" height="125" fill="#2ecc71" opacity="0.85"/>
+  <rect x="446" y="110" width="22" height="110" fill="#2ecc71" opacity="0.85"/>
+  <!-- x labels -->
+  <text x="329" y="232" text-anchor="middle" fill="#666" font-size="8">1</text>
+  <text x="361" y="232" text-anchor="middle" fill="#666" font-size="8">5</text>
+  <text x="393" y="232" text-anchor="middle" fill="#666" font-size="8">10</text>
+  <text x="425" y="232" text-anchor="middle" fill="#666" font-size="8">20</text>
+  <text x="457" y="232" text-anchor="middle" fill="#666" font-size="8">100</text>
+  <text x="395" y="245" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
+
+  <!-- Right mini chart: Revenue gain per kWh -->
+  <text x="590" y="68" text-anchor="middle" fill="#2c5f2d" font-size="10" font-weight="bold">Mehrerlös [€/kWh]</text>
+  <line x1="536" y1="220" x2="536" y2="78" stroke="#999" stroke-width="1"/>
+  <line x1="536" y1="220" x2="680" y2="220" stroke="#999" stroke-width="1"/>
+  <rect x="544" y="128" width="22" height="92"  fill="#3498db" opacity="0.85"/>
+  <rect x="570" y="108" width="22" height="112" fill="#3498db" opacity="0.85"/>
+  <rect x="596" y="118" width="22" height="102" fill="#3498db" opacity="0.85"/>
+  <rect x="622" y="90"  width="22" height="130" fill="#3498db" opacity="0.85"/>
+  <rect x="648" y="175" width="22" height="45"  fill="#3498db" opacity="0.85"/>
+  <text x="555" y="232" text-anchor="middle" fill="#666" font-size="8">1</text>
+  <text x="581" y="232" text-anchor="middle" fill="#666" font-size="8">5</text>
+  <text x="607" y="232" text-anchor="middle" fill="#666" font-size="8">10</text>
+  <text x="633" y="232" text-anchor="middle" fill="#666" font-size="8">20</text>
+  <text x="659" y="232" text-anchor="middle" fill="#666" font-size="8">100</text>
+  <text x="612" y="245" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
+
+  <!-- Results table area -->
+  <rect x="304" y="260" width="375" height="76" rx="3" fill="#f9f9f9" stroke="#ddd" stroke-width="1"/>
+  <text x="314" y="276" fill="#333" font-size="9" font-family="monospace">  cap MWh  exfl MWh  export [h]  rev [T€]  revadd [T€]  rev €/kWh</text>
+  <text x="314" y="289" fill="#333" font-size="9" font-family="monospace">  no rule      13.4        8760     603.8          nn          nn</text>
+  <text x="314" y="302" fill="#333" font-size="9" font-family="monospace">      1.0      13.4        6821     708.2       104.4       104.4</text>
+  <text x="314" y="315" fill="#333" font-size="9" font-family="monospace">      5.0      13.2        5930     742.1       138.3        27.7</text>
+  <text x="314" y="328" fill="#888" font-size="9" font-family="monospace">      ...</text>
+
+  <!-- Download buttons -->
+  <rect x="304" y="340" width="60" height="18" rx="3" fill="#4caf50"/>
+  <text x="334" y="352" text-anchor="middle" fill="white" font-size="9" font-weight="bold">SVG ↓</text>
+  <rect x="374" y="340" width="60" height="18" rx="3" fill="#4caf50"/>
+  <text x="404" y="352" text-anchor="middle" fill="white" font-size="9" font-weight="bold">CSV ↓</text>
+</svg>

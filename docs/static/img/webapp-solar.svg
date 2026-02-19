@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 300" font-family="Arial,Helvetica,sans-serif">
+  <rect width="700" height="300" fill="#f9f9f9"/>
+  <text x="350" y="22" text-anchor="middle" fill="#2c5f2d" font-size="14" font-weight="bold">Solar (SolBatSys) – Erlös nach Kapazität</text>
+  <text x="350" y="38" text-anchor="middle" fill="#666" font-size="10">dynamic_discharge-Strategie · Deutschland 2024 · 10 MWp Solarpark</text>
+
+  <!-- LEFT: Revenue -->
+  <text x="185" y="58" text-anchor="middle" fill="#333" font-size="11" font-weight="bold">Gesamterlös [T€/Jahr]</text>
+  <line x1="60"  y1="240" x2="60"  y2="65" stroke="#999" stroke-width="1"/>
+  <line x1="60"  y1="240" x2="320" y2="240" stroke="#999" stroke-width="1"/>
+
+  <!-- Y 580–640 T€; 60 T€ = 175px → 1 T€ = 2.917px -->
+  <text x="54" y="244" text-anchor="end" fill="#666" font-size="9">580</text>
+  <text x="54" y="186" text-anchor="end" fill="#666" font-size="9">600</text>
+  <text x="54" y="128" text-anchor="end" fill="#666" font-size="9">620</text>
+  <text x="54" y="70"  text-anchor="end" fill="#666" font-size="9">640</text>
+  <line x1="60" y1="186" x2="320" y2="186" stroke="#eee" stroke-width="1"/>
+  <line x1="60" y1="128" x2="320" y2="128" stroke="#eee" stroke-width="1"/>
+  <line x1="60" y1="70"  x2="320" y2="70"  stroke="#eee" stroke-width="1"/>
+
+  <!-- always: 603 → (603-580)*2.917=67.1 → y=240-67=173 -->
+  <!-- 0 MWh:  590 → 29.2 → y=211 (this is no-bat, curtailment) -->
+  <!-- 1 MWh:  598 → 52.5 → y=187.5 -->
+  <!-- 5 MWh:  615 → 102 → y=138 -->
+  <!-- 10 MWh: 623 → 125 → y=115 -->
+  <!-- 20 MWh: 628 → 139.6→ y=100 -->
+  <!-- 70 MWh: 631 → 148 → y=92 -->
+
+  <!-- "always" bar (grey reference) -->
+  <rect x="68"  y="173" width="28" height="67"  fill="#bdc3c7" stroke="#95a5a6" stroke-width="1"/>
+  <text x="82"  y="168" text-anchor="middle" fill="#7f8c8d" font-size="7">always</text>
+  <!-- 0 MWh (no-bat) -->
+  <rect x="104" y="211" width="28" height="29"  fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1"/>
+  <!-- batteries -->
+  <rect x="140" y="188" width="28" height="52"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="176" y="138" width="28" height="102" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="212" y="115" width="28" height="125" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="248" y="100" width="28" height="140" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="284" y="92"  width="28" height="148" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+
+  <text x="82"  y="260" text-anchor="middle" fill="#555" font-size="8">always</text>
+  <text x="118" y="260" text-anchor="middle" fill="#555" font-size="8">0</text>
+  <text x="154" y="260" text-anchor="middle" fill="#555" font-size="8">1</text>
+  <text x="190" y="260" text-anchor="middle" fill="#555" font-size="8">5</text>
+  <text x="226" y="260" text-anchor="middle" fill="#555" font-size="8">10</text>
+  <text x="262" y="260" text-anchor="middle" fill="#555" font-size="8">20</text>
+  <text x="298" y="260" text-anchor="middle" fill="#555" font-size="8">70</text>
+  <text x="185" y="276" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
+
+  <!-- RIGHT: €/kWh -->
+  <text x="530" y="58" text-anchor="middle" fill="#333" font-size="11" font-weight="bold">Mehrerlös [€/kWh Kapazität]</text>
+  <line x1="400" y1="240" x2="400" y2="65" stroke="#999" stroke-width="1"/>
+  <line x1="400" y1="240" x2="660" y2="240" stroke="#999" stroke-width="1"/>
+
+  <!-- Y: 0–10 €/kWh, 10=175px → 1=17.5px -->
+  <text x="394" y="244" text-anchor="end" fill="#666" font-size="9">0</text>
+  <text x="394" y="186" text-anchor="end" fill="#666" font-size="9">3.3</text>
+  <text x="394" y="128" text-anchor="end" fill="#666" font-size="9">6.6</text>
+  <text x="394" y="70"  text-anchor="end" fill="#666" font-size="9">10</text>
+  <line x1="400" y1="186" x2="660" y2="186" stroke="#eee" stroke-width="1"/>
+  <line x1="400" y1="128" x2="660" y2="128" stroke="#eee" stroke-width="1"/>
+  <line x1="400" y1="70"  x2="660" y2="70"  stroke="#eee" stroke-width="1"/>
+
+  <!-- Values (€/kWh): 8.3, 4.96, 3.3, 1.93, 0.82 -->
+  <!-- 8.3  → 8.3*17.5=145.25 -->
+  <!-- 4.96 → 86.8 -->
+  <!-- 3.3  → 57.75 -->
+  <!-- 1.93 → 33.8 -->
+  <!-- 0.82 → 14.4 -->
+  <rect x="418" y="95"  width="34" height="145" fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <rect x="462" y="153" width="34" height="87"  fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <rect x="506" y="182" width="34" height="58"  fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <rect x="550" y="206" width="34" height="34"  fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <rect x="594" y="226" width="34" height="14"  fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+
+  <text x="435" y="260" text-anchor="middle" fill="#555" font-size="8">1</text>
+  <text x="479" y="260" text-anchor="middle" fill="#555" font-size="8">5</text>
+  <text x="523" y="260" text-anchor="middle" fill="#555" font-size="8">10</text>
+  <text x="567" y="260" text-anchor="middle" fill="#555" font-size="8">20</text>
+  <text x="611" y="260" text-anchor="middle" fill="#555" font-size="8">70</text>
+  <text x="530" y="276" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
+
+  <text x="350" y="295" text-anchor="middle" fill="#555" font-size="9">Abnehmender Grenznutzen – kleine Speicher sind am effizientesten</text>
+</svg>

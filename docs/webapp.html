@@ -1,0 +1,220 @@
+---
+layout: default
+title: Webanwendung
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-zugang">Zugang</a></li>
+      <li><a href="#sec-startseite">Startseite</a></li>
+      <li><a href="#sec-analyse">Analyse-Formular</a></li>
+      <li><a href="#sec-ergebnisse">Ergebnisse</a></li>
+      <li><a href="#sec-szenarien">Szenarien</a>
+        <ul>
+          <li><a href="#sec-biogas">Biogas</a></li>
+          <li><a href="#sec-solar">Solar</a></li>
+          <li><a href="#sec-community">Community</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-strategien">Strategien</a>
+        <ul>
+          <li><a href="#sec-threshold">price_threshold</a></li>
+          <li><a href="#sec-dynamic">dynamic_discharge</a></li>
+          <li><a href="#sec-dayahead">day_ahead</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-lokal">Lokale Installation</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (CLI)</a></li>
+      <li><a href="solbatsys.html">Solar (CLI)</a></li>
+      <li><a href="community.html">Community (CLI)</a></li>
+      <li><a href="strategies.html">Strategien (CLI)</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>Webanwendung</h1>
+
+    <p>
+      Die SMARD-Utils Webanwendung stellt die drei Analyseszenarien
+      über ein Browserformular bereit – ohne Kommandozeile.
+      Ergebnisse werden als interaktiver Balkendiagramm (SVG)
+      und als Text-Tabelle dargestellt; beide können heruntergeladen werden.
+    </p>
+
+    <h2 id="sec-zugang">Zugang</h2>
+    <p>
+      Die öffentliche Instanz ist erreichbar unter:
+    </p>
+    <pre>https://eduard.uber.space/smardutils/</pre>
+    <p>
+      Beim ersten Aufruf erscheint eine kurze Einwilligungsseite.
+      Nach dem Bestätigen der Checkbox wird eine Sitzung angelegt
+      und die Startseite geöffnet. Es wird kein Passwort benötigt.
+    </p>
+    <div class="info-box">
+      <strong>Datenschutz:</strong> Die Sitzung wird serverseitig
+      durch eine fortlaufende Nummer identifiziert. Hochgeladene
+      Dateien und Ergebnisse werden temporär gespeichert und
+      mit dem Logout gelöscht. Es werden keine personenbezogenen
+      Daten erhoben.
+    </div>
+
+    <h2 id="sec-startseite">Startseite</h2>
+    <p>
+      Die Startseite zeigt drei Szenario-Karten und eine Strategieübersicht.
+      Ein Klick auf eine Karte öffnet das Analyse-Formular
+      für das gewählte Szenario.
+    </p>
+    <img src="static/img/webapp-startseite.svg"
+         alt="Startseite der Webanwendung – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h2 id="sec-analyse">Analyse-Formular</h2>
+    <p>
+      Das Formular ist für alle drei Szenarien identisch aufgebaut.
+      Links befindet sich das Eingabeformular, rechts erscheinen
+      nach dem Start die Ergebnisse.
+    </p>
+    <img src="static/img/webapp-form.svg"
+         alt="Analyse-Formular – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <p>Formularfelder:</p>
+    <table>
+      <tr><th>Feld</th><th>Bedeutung</th></tr>
+      <tr><td>Szenario</td><td>Biogas / Solar / Community – jederzeit wechselbar</td></tr>
+      <tr><td>Strategie</td><td><code>price_threshold</code>, <code>dynamic_discharge</code> oder <code>day_ahead</code></td></tr>
+      <tr><td>Region</td><td><code>de</code> (Deutschland) oder <code>lu</code> (Luxemburg)</td></tr>
+      <tr><td>Kapazitäten [MWh]</td><td>Kommagetrennte Liste der Speichergrößen, z.B. <code>1, 5, 10, 20, 100</code></td></tr>
+      <tr><td>Leistungen [MW]</td><td>Kommagetrennte Maximalleistungen (gleiche Länge wie Kapazitäten)</td></tr>
+      <tr><td>Eigene SMARD-Daten</td><td>Optional: eigene SMARD-CSV hochladen statt Standarddatei</td></tr>
+    </table>
+    <p>
+      Mit <strong>Analyse starten</strong> wird die Berechnung ausgeführt.
+      Je nach Kapazitätsliste und Datengröße dauert dies 5–30 Sekunden.
+    </p>
+
+    <h2 id="sec-ergebnisse">Ergebnisse</h2>
+    <p>
+      Nach der Berechnung erscheinen rechts neben dem Formular:
+    </p>
+    <ul>
+      <li><strong>Balkendiagramm (SVG)</strong>: Zwei Charts nebeneinander –
+        Erlös nach Kapazität und Mehrerlös pro kWh Kapazität.</li>
+      <li><strong>Texttabelle</strong>: Dieselbe Ausgabe wie das CLI-Werkzeug,
+        mit allen Spalten (Autarkierate, Spotpreis, Fixpreis, Erlös usw.).</li>
+      <li><strong>Download-Buttons</strong>: SVG-Chart und CSV-Ergebnisse
+        können direkt gespeichert werden.</li>
+    </ul>
+
+    <hr>
+    <h2 id="sec-szenarien">Szenarien in der Webanwendung</h2>
+
+    <h3 id="sec-biogas">Biogas (BioBatSys)</h3>
+    <p>
+      Simuliert eine Biogasanlage mit konstanter Einspeiseleistung
+      (Standard: 1.000 kW). Der Speicher verschiebt die Einspeisung
+      in hochpreisige Stunden. Zusätzlich wird die
+      <a href="biobatsys.html#sec-flex">EEG-Flexibilisierungsprämie</a>
+      berechnet, sofern die Einspeisestunden den Grenzwert unterschreiten.
+    </p>
+    <p>Standardwerte: Kapazitäten <code>1, 5, 10, 20, 100</code> MWh –
+       Leistungen <code>0.5, 2.5, 5, 10, 50</code> MW – Region <code>de</code></p>
+    <img src="static/img/webapp-biogas.svg"
+         alt="Biogas Ergebnis-Chart – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h3 id="sec-solar">Solar (SolBatSys)</h3>
+    <p>
+      Simuliert einen großen PV-Park (Standard: 10 MWp).
+      Die Erzeugung wird aus dem SMARD-Profil proportional skaliert.
+      Der Speicher verlagert Energie von der Mittagsspitze
+      in preisstärkere Stunden. Als Referenz dient die Zeile
+      <em>always</em> (sofortige Einspeisung ohne Speicher).
+    </p>
+    <p>Standardwerte: Kapazitäten <code>1, 5, 10, 20, 50, 70</code> MWh –
+       Leistungen <code>0.5, 2.5, 5, 10, 25, 35</code> MW – Region <code>de</code></p>
+    <img src="static/img/webapp-solar.svg"
+         alt="Solar Ergebnis-Chart – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h3 id="sec-community">Community (SmardAnalyseSys)</h3>
+    <p>
+      Simuliert ein Wohnquartier (Standard: ~6.000 Haushalte in Luxemburg)
+      mit gemeinsamer Solar- und Windanlage (je 5 MW).
+      Bewertet werden Autarkierate und Kosteneinsparungen gegenüber
+      Spot- und Fixpreistarifen.
+    </p>
+    <p>Standardwerte: Kapazitäten <code>0.1, 1, 5, 10, 20</code> MWh –
+       Leistungen <code>0.05, 0.5, 2.5, 5, 10</code> MW – Region <code>lu</code></p>
+    <img src="static/img/webapp-community.svg"
+         alt="Community Ergebnis-Chart – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <hr>
+    <h2 id="sec-strategien">Strategien in der Webanwendung</h2>
+    <p>
+      Die Strategie wird im Formular ausgewählt und beeinflusst,
+      in welchen Stunden geladen bzw. entladen wird.
+      Ausführliche Beschreibung: <a href="strategies.html">Strategien (CLI)</a>.
+    </p>
+
+    <h3 id="sec-threshold">price_threshold</h3>
+    <p>
+      Vergleicht den aktuellen Spotpreis mit dem gleitenden 25-Stunden-Mittelwert.
+      Ist der Preis unterhalb der Schwelle, wird geladen; oberhalb wird entladen.
+      Einfach und robust – Standard für das Biogas-Szenario.
+    </p>
+    <img src="static/img/strategy-price-threshold.svg"
+         alt="Strategie price_threshold – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h3 id="sec-dynamic">dynamic_discharge</h3>
+    <p>
+      Erstellt täglich um 13:00 Uhr ein Preisranking der nächsten 24 Stunden.
+      Die teuersten ~30 % der Stunden werden zum Entladen genutzt,
+      die günstigsten zum Laden. Die Entlademenge folgt einer
+      konkaven Sättigungskurve. Standard für Solar und Community.
+    </p>
+    <img src="static/img/strategy-dynamic-discharge.svg"
+         alt="Strategie dynamic_discharge – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h3 id="sec-dayahead">day_ahead</h3>
+    <p>
+      Simuliert den realen Börsenbetrieb: EPEX-Spot-Preise werden täglich
+      um 13:00 Uhr für den Folgetag veröffentlicht. Die Strategie plant
+      den Lade-/Entladeplan nur auf Basis der tatsächlich verfügbaren
+      Preisinformationen – ohne Blick in die Zukunft.
+    </p>
+    <img src="static/img/strategy-day-ahead.svg"
+         alt="Strategie day_ahead – Platzhalter für Screenshot"
+         style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <hr>
+    <h2 id="sec-lokal">Lokale Installation</h2>
+    <p>
+      Die Webanwendung kann lokal betrieben werden:
+    </p>
+    <ol>
+      <li>Repository klonen und Paket installieren (siehe <a href="{{ site.baseurl }}/#sec-installation">Installation</a>)</li>
+      <li>Zusätzliche Webapp-Abhängigkeiten installieren:
+        <pre>pip install flask flask-cors</pre>
+      </li>
+      <li>Webapp starten:
+        <pre>python webapp/app.py</pre>
+      </li>
+      <li>Browser öffnen:
+        <pre>http://localhost:5000</pre>
+      </li>
+    </ol>
+    <p>
+      Im lokalen Betrieb entfällt der URL-Präfix <code>/smardutils</code>;
+      die Anwendung läuft direkt auf Port 5000.
+    </p>
+  </article>
+</section>

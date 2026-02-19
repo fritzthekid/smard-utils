@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 280" font-family="Arial,Helvetica,sans-serif">
+  <rect width="700" height="280" fill="#f9f9f9"/>
+  <text x="350" y="20" text-anchor="middle" fill="#2c5f2d" font-size="14" font-weight="bold">Strategie: day_ahead</text>
+  <text x="350" y="36" text-anchor="middle" fill="#666" font-size="10">Tägl. 13:00: EPEX Day-Ahead Preise verfügbar → Schwellwertvergleich im Preisfenster</text>
+
+  <!-- Axes -->
+  <line x1="60" y1="230" x2="60"  y2="52" stroke="#999" stroke-width="1.5"/>
+  <line x1="60" y1="230" x2="660" y2="230" stroke="#999" stroke-width="1.5"/>
+  <text x="28" y="148" fill="#666" font-size="10" transform="rotate(-90,28,148)">Preis [€/MWh]</text>
+  <text x="360" y="248" text-anchor="middle" fill="#666" font-size="10">Tagesstunde</text>
+
+  <!-- Y gridlines and labels (scale: 170px = 100€, y_bottom=230) -->
+  <line x1="60" y1="188" x2="660" y2="188" stroke="#eee" stroke-width="1"/>
+  <line x1="60" y1="145" x2="660" y2="145" stroke="#eee" stroke-width="1"/>
+  <line x1="60" y1="103" x2="660" y2="103" stroke="#eee" stroke-width="1"/>
+  <line x1="60" y1="60"  x2="660" y2="60"  stroke="#eee" stroke-width="1"/>
+  <text x="54" y="234" text-anchor="end" fill="#666" font-size="9">0</text>
+  <text x="54" y="192" text-anchor="end" fill="#666" font-size="9">25</text>
+  <text x="54" y="149" text-anchor="end" fill="#666" font-size="9">50</text>
+  <text x="54" y="107" text-anchor="end" fill="#666" font-size="9">75</text>
+  <text x="54" y="64"  text-anchor="end" fill="#666" font-size="9">100</text>
+
+  <!-- Charge threshold: 32.5 €/MWh → y = 230 - 32.5*1.7 = 175 -->
+  <line x1="60" y1="175" x2="660" y2="175" stroke="#27ae60" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <!-- Discharge threshold: 48.7 €/MWh → y = 230 - 48.7*1.7 = 147 -->
+  <line x1="60" y1="147" x2="660" y2="147" stroke="#e74c3c" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+  <!-- Info box top-right: window average & thresholds -->
+  <rect x="488" y="48" width="164" height="46" rx="3" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="495" y="60"  fill="#555" font-size="9">Fenster-Ø:  40.6 €/MWh</text>
+  <text x="495" y="72"  fill="#e74c3c" font-size="9">Entladen ≥ 48.7 € (×1.2) ──</text>
+  <text x="495" y="84"  fill="#27ae60" font-size="9">Laden    ≤ 32.5 € (×0.8) - -</text>
+
+  <!-- Bars per hour (width=23, gap=2; x = 60 + i*25)
+       Colors: charge=green(0-6,12-14,23), idle=blue(7,10,11,15,21,22), discharge=orange(8,9,16-20)
+       y = round(230 - price*1.7), h = 230 - y
+  -->
+  <!-- h0=25  charge  y=188 h=42 --> <rect x="60"  y="188" width="23" height="42"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h1=20  charge  y=196 h=34 --> <rect x="85"  y="196" width="23" height="34"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h2=18  charge  y=199 h=31 --> <rect x="110" y="199" width="23" height="31"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h3=15  charge  y=205 h=25 --> <rect x="135" y="205" width="23" height="25"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h4=18  charge  y=199 h=31 --> <rect x="160" y="199" width="23" height="31"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h5=22  charge  y=193 h=37 --> <rect x="185" y="193" width="23" height="37"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h6=30  charge  y=179 h=51 --> <rect x="210" y="179" width="23" height="51"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h7=45  idle    y=154 h=76 --> <rect x="235" y="154" width="23" height="76"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h8=55  disch   y=137 h=93 --> <rect x="260" y="137" width="23" height="93"  fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h9=50  disch   y=145 h=85 --> <rect x="285" y="145" width="23" height="85"  fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h10=40 idle    y=162 h=68 --> <rect x="310" y="162" width="23" height="68"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h11=35 idle    y=171 h=59 --> <rect x="335" y="171" width="23" height="59"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h12=30 charge  y=179 h=51 --> <rect x="360" y="179" width="23" height="51"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h13=28 charge  y=182 h=48 --> <rect x="385" y="182" width="23" height="48"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h14=32 charge  y=176 h=54 --> <rect x="410" y="176" width="23" height="54"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <!-- h15=42 idle    y=159 h=71 --> <rect x="435" y="159" width="23" height="71"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h16=65 disch   y=120 h=110--> <rect x="460" y="120" width="23" height="110" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h17=80 disch   y=94  h=136--> <rect x="485" y="94"  width="23" height="136" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h18=85 disch   y=86  h=144--> <rect x="510" y="86"  width="23" height="144" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h19=75 disch   y=103 h=127--> <rect x="535" y="103" width="23" height="127" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h20=60 disch   y=128 h=102--> <rect x="560" y="128" width="23" height="102" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <!-- h21=45 idle    y=154 h=76 --> <rect x="585" y="154" width="23" height="76"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h22=35 idle    y=171 h=59 --> <rect x="610" y="171" width="23" height="59"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h23=25 charge  y=188 h=42 --> <rect x="635" y="188" width="23" height="42"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+
+  <!-- Hour labels every 4h -->
+  <text x="72"  y="242" text-anchor="middle" fill="#888" font-size="8">0</text>
+  <text x="172" y="242" text-anchor="middle" fill="#888" font-size="8">4</text>
+  <text x="272" y="242" text-anchor="middle" fill="#888" font-size="8">8</text>
+  <text x="372" y="242" text-anchor="middle" fill="#888" font-size="8">12</text>
+  <text x="472" y="242" text-anchor="middle" fill="#888" font-size="8">16</text>
+  <text x="572" y="242" text-anchor="middle" fill="#888" font-size="8">20</text>
+  <text x="648" y="242" text-anchor="middle" fill="#888" font-size="8">24</text>
+
+  <!-- 13:00 Day-Ahead publication boundary -->
+  <line x1="385" y1="46" x2="385" y2="228" stroke="#9b59b6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="385" y="44" text-anchor="middle" fill="#9b59b6" font-size="9">13:00 Day-Ahead</text>
+
+  <!-- Legend -->
+  <rect x="52"  y="257" width="11" height="10" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <text x="68"  y="266" fill="#27ae60" font-size="9" font-weight="bold">Laden</text>
+  <text x="102" y="266" fill="#555"    font-size="9">(Preis ≤ 0.8 × Ø)</text>
+
+  <rect x="218" y="257" width="11" height="10" fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <text x="234" y="266" fill="#3498db" font-size="9" font-weight="bold">Idle</text>
+  <text x="256" y="266" fill="#555"    font-size="9">(0.8 &lt; Preis &lt; 1.2 × Ø)</text>
+
+  <rect x="400" y="257" width="11" height="10" fill="#f39c12" stroke="#e67e22" stroke-width="1"/>
+  <text x="416" y="266" fill="#e67e22" font-size="9" font-weight="bold">Entladen</text>
+  <text x="462" y="266" fill="#555"    font-size="9">(Preis ≥ 1.2 × Ø, konkave Menge)</text>
+</svg>

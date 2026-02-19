@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 280" font-family="Arial,Helvetica,sans-serif">
+  <rect width="700" height="280" fill="#f9f9f9"/>
+  <text x="350" y="20" text-anchor="middle" fill="#2c5f2d" font-size="14" font-weight="bold">Strategie: dynamic_discharge</text>
+  <text x="350" y="36" text-anchor="middle" fill="#666" font-size="10">Tägliches Preis-Ranking (tägl. um 13:00 aktualisiert) → Entladefaktor pro Stunde</text>
+
+  <!-- Axes -->
+  <line x1="50" y1="210" x2="50"  y2="55" stroke="#999" stroke-width="1.5"/>
+  <line x1="50" y1="130" x2="670" y2="130" stroke="#999" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="50" y1="210" x2="670" y2="210" stroke="#999" stroke-width="1.5"/>
+  <text x="30" y="135" fill="#666" font-size="10" transform="rotate(-90,30,135)">Entladefaktor df</text>
+  <text x="360" y="228" text-anchor="middle" fill="#666" font-size="10">Tagesstunde</text>
+
+  <!-- Y axis labels -->
+  <text x="44" y="62"  text-anchor="end" fill="#666" font-size="9">+1.0</text>
+  <text x="44" y="118" text-anchor="end" fill="#666" font-size="9">+0.5</text>
+  <text x="44" y="134" text-anchor="end" fill="#666" font-size="9"> 0</text>
+  <text x="44" y="162" text-anchor="end" fill="#666" font-size="9">−0.5</text>
+  <text x="44" y="210" text-anchor="end" fill="#666" font-size="9">−1.0</text>
+
+  <!-- Discharge threshold line at df=0.7 → y = 130 - 0.7*80 = 74 -->
+  <line x1="50" y1="74" x2="670" y2="74" stroke="#e74c3c" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="672" y="78" fill="#e74c3c" font-size="9">df = 0.7</text>
+  <text x="672" y="88" fill="#e74c3c" font-size="9">(Entlade-</text>
+  <text x="672" y="98" fill="#e74c3c" font-size="9">schwelle)</text>
+
+  <!-- Bar data per hour: df values based on a realistic solar day
+       night/morning low (negative), midday low (negative, solar high), peak evening (positive)
+       h0=-.8, h1=-.9, h2=-1, h3=-.9, h4=-.7, h5=-.5, h6=-.3, h7=-.1,
+       h8=-.4, h9=-.6, h10=-.7, h11=-.5, h12=-.2, h13=0.1, h14=0.3, h15=0.5,
+       h16=0.7, h17=0.9, h18=1.0, h19=0.85, h20=0.6, h21=0.4, h22=0.1, h23=-.3
+       Bar width = 25.8px, gap = 0.5px, start x=52
+  -->
+  <!-- y = 130 - df*80;  positive df → above zero line; negative → below -->
+  <!-- Negative (charge) bars: green -->
+  <!-- h0: df=-.8 → y_zero=130, bar from 130 to 130+64=194, h=64 -->
+  <rect x="52"   y="130" width="24" height="64" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="78"   y="130" width="24" height="72" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="104"  y="130" width="24" height="80" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="130"  y="130" width="24" height="72" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="156"  y="130" width="24" height="56" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="182"  y="130" width="24" height="40" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="208"  y="130" width="24" height="24" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="234"  y="130" width="24" height="8"  fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="260"  y="130" width="24" height="32" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="286"  y="130" width="24" height="48" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="312"  y="130" width="24" height="56" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="338"  y="130" width="24" height="40" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+  <rect x="364"  y="130" width="24" height="16" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+
+  <!-- Positive idle (blue, df 0..0.7): hours 13,14,15 -->
+  <rect x="390"  y="122" width="24" height="8"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <rect x="416"  y="106" width="24" height="24" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <rect x="442"  y="90"  width="24" height="40" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+
+  <!-- Positive discharge (orange, df>0.7): hours 16..20 -->
+  <rect x="468"  y="74"  width="24" height="56" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <rect x="494"  y="58"  width="24" height="72" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <rect x="520"  y="50"  width="24" height="80" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <rect x="546"  y="62"  width="24" height="68" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+  <rect x="572"  y="82"  width="24" height="48" fill="#f39c12" stroke="#e67e22" stroke-width="0.5"/>
+
+  <!-- Idle/small positive: h21,h22 -->
+  <rect x="598"  y="98"  width="24" height="32" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <rect x="624"  y="122" width="24" height="8"  fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <!-- h23 negative -->
+  <rect x="650"  y="130" width="24" height="24" fill="#2ecc71" stroke="#27ae60" stroke-width="0.5"/>
+
+  <!-- Hour labels (every 4h) -->
+  <text x="64"  y="222" text-anchor="middle" fill="#888" font-size="8">0</text>
+  <text x="168" y="222" text-anchor="middle" fill="#888" font-size="8">4</text>
+  <text x="272" y="222" text-anchor="middle" fill="#888" font-size="8">8</text>
+  <text x="376" y="222" text-anchor="middle" fill="#888" font-size="8">12</text>
+  <text x="480" y="222" text-anchor="middle" fill="#888" font-size="8">16</text>
+  <text x="584" y="222" text-anchor="middle" fill="#888" font-size="8">20</text>
+  <text x="662" y="222" text-anchor="middle" fill="#888" font-size="8">24</text>
+
+  <!-- Update annotation -->
+  <line x1="390" y1="46" x2="390" y2="218" stroke="#9b59b6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="390" y="43" text-anchor="middle" fill="#9b59b6" font-size="9">13:00 Update</text>
+
+  <!-- Legend -->
+  <rect x="55" y="240" width="12" height="10" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <text x="72" y="249" fill="#27ae60" font-size="9" font-weight="bold">Laden</text>
+  <text x="110" y="249" fill="#555" font-size="9">(df &lt; 0)</text>
+
+  <rect x="175" y="240" width="12" height="10" fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <text x="192" y="249" fill="#3498db" font-size="9" font-weight="bold">Einspeisen/Idle</text>
+  <text x="285" y="249" fill="#555" font-size="9">(0 ≤ df ≤ 0.7)</text>
+
+  <rect x="365" y="240" width="12" height="10" fill="#f39c12" stroke="#e67e22" stroke-width="1"/>
+  <text x="382" y="249" fill="#e67e22" font-size="9" font-weight="bold">Entladen</text>
+  <text x="437" y="249" fill="#555" font-size="9">(df &gt; 0.7, top ~30 % der Stunden)</text>
+  <text x="437" y="261" fill="#555" font-size="9">Menge: konkave Sättigungskurve</text>
+</svg>

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 280" font-family="Arial,Helvetica,sans-serif">
+  <rect width="700" height="280" fill="#f9f9f9"/>
+  <text x="350" y="20" text-anchor="middle" fill="#2c5f2d" font-size="14" font-weight="bold">Strategie: price_threshold</text>
+  <text x="350" y="36" text-anchor="middle" fill="#666" font-size="10">Laden/Entladen basierend auf aktuellem Preis vs. gleitendem 25h-Mittelwert</text>
+
+  <!-- Axes -->
+  <line x1="50"  y1="210" x2="50"  y2="55" stroke="#999" stroke-width="1.5"/>
+  <line x1="50"  y1="210" x2="670" y2="210" stroke="#999" stroke-width="1.5"/>
+  <text x="30"   y="135" fill="#666" font-size="10" transform="rotate(-90,30,135)">Preis [ct/kWh]</text>
+  <text x="360"  y="228" text-anchor="middle" fill="#666" font-size="10">Tagesstunde</text>
+
+  <!-- Hour labels -->
+  <text x="50"  y="222" text-anchor="middle" fill="#888" font-size="8">0</text>
+  <text x="156" y="222" text-anchor="middle" fill="#888" font-size="8">4</text>
+  <text x="262" y="222" text-anchor="middle" fill="#888" font-size="8">8</text>
+  <text x="368" y="222" text-anchor="middle" fill="#888" font-size="8">12</text>
+  <text x="474" y="222" text-anchor="middle" fill="#888" font-size="8">16</text>
+  <text x="580" y="222" text-anchor="middle" fill="#888" font-size="8">20</text>
+  <text x="660" y="222" text-anchor="middle" fill="#888" font-size="8">24</text>
+
+  <!-- Simulated 24h price curve (typical day: low at night, peak morning/evening) -->
+  <!-- Hours at 26.5px each, y: 0ct→210, 20ct→55 → 155px/20ct = 7.75px/ct -->
+  <!-- price data: h0=4,h1=3,h2=3,h3=3,h4=4,h5=6,h6=9,h7=14,h8=16,h9=13,h10=10,h11=8,
+                   h12=7,h13=8,h14=9,h15=11,h16=14,h17=17,h18=18,h19=16,h20=13,h21=11,h22=8,h23=5 -->
+  <!-- y = 210 - price*7.75 -->
+  <polyline fill="none" stroke="#2c5f2d" stroke-width="2.5"
+    points="
+      50,179  76.5,187  103,187  129.5,187  156,179  182.5,163.5
+      209,140.25  235.5,101.5  262,83.5  288.5,109.25  315,132.5
+      341.5,147.5  368,155.75  394.5,147.5  421,140.25  447.5,124.75
+      474,101.5  500.5,71.75  527,64  553.5,83.5  580,109.25
+      606.5,124.75  633,148  659.5,171.25
+    "/>
+
+  <!-- Average price line (mean ≈ 9.5 ct → y = 210 - 9.5*7.75 = 136.4) -->
+  <line x1="50" y1="136" x2="660" y2="136" stroke="#e74c3c" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="665" y="140" fill="#e74c3c" font-size="9">Mittelpreis</text>
+  <text x="665" y="150" fill="#e74c3c" font-size="9">× threshold</text>
+
+  <!-- Shading: charge zones (price < threshold) = green below curve and above x-axis where price < avg -->
+  <!-- hours 0-6: price < avg → charge (green shade) -->
+  <polygon fill="#2ecc71" fill-opacity="0.25"
+    points="50,210  50,179  76.5,187  103,187  129.5,187  156,179  182.5,163.5  209,140.25  209,210"/>
+  <!-- hours 9-15: price < avg → charge -->
+  <polygon fill="#2ecc71" fill-opacity="0.25"
+    points="288.5,210  288.5,109.25  315,132.5  341.5,147.5  368,155.75  394.5,147.5  421,140.25  421,210"/>
+  <!-- hours 22-24: price < avg → charge -->
+  <polygon fill="#2ecc71" fill-opacity="0.25"
+    points="633,210  633,148  659.5,171.25  660,210"/>
+
+  <!-- Discharge zones (price >= avg) = orange shade -->
+  <!-- hours 7-8: price > avg -->
+  <polygon fill="#f39c12" fill-opacity="0.25"
+    points="209,210  209,140.25  235.5,101.5  262,83.5  288.5,109.25  288.5,210"/>
+  <!-- hours 16-21: price > avg -->
+  <polygon fill="#f39c12" fill-opacity="0.25"
+    points="421,210  421,140.25  447.5,124.75  474,101.5  500.5,71.75  527,64  553.5,83.5  580,109.25  606.5,124.75  633,148  633,210"/>
+
+  <!-- Legend -->
+  <rect x="55" y="58" width="14" height="10" fill="#2ecc71" fill-opacity="0.5" stroke="#27ae60" stroke-width="1"/>
+  <text x="75" y="67" fill="#27ae60" font-size="10" font-weight="bold">Laden</text>
+  <text x="75" y="79" fill="#555" font-size="9">(preis &lt; threshold × mittel)</text>
+
+  <rect x="55" y="90" width="14" height="10" fill="#f39c12" fill-opacity="0.5" stroke="#e67e22" stroke-width="1"/>
+  <text x="75" y="99" fill="#e67e22" font-size="10" font-weight="bold">Entladen</text>
+  <text x="75" y="111" fill="#555" font-size="9">(preis ≥ threshold × mittel)</text>
+
+  <!-- Annotation -->
+  <text x="350" y="248" text-anchor="middle" fill="#555" font-size="9">
+    Standard-Threshold = 1,0 → Laden unter, Entladen über dem 25h-Rollmittel
+  </text>
+  <text x="350" y="262" text-anchor="middle" fill="#555" font-size="9">
+    Kein Vorausblick – Entscheidung nur auf Basis des aktuellen Preises
+  </text>
+</svg>
