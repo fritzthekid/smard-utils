@@ -298,10 +298,9 @@ def generate_chart(analyzer, scenario, output_dir):
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-    # Determine column names based on legacy format
     cap_col = 'capacity kWh'
     rev_col = 'revenue [\u20ac]'
-    exf_col = 'exflow kWh'
+    sp_col = 'spot price [\u20ac]'
 
     # Skip marker row (index 0) and no-battery baseline (index 1)
     plot_df = df.iloc[2:].copy() if len(df) > 2 else df.iloc[1:].copy()
@@ -309,30 +308,49 @@ def generate_chart(analyzer, scenario, output_dir):
     if cap_col in plot_df.columns and rev_col in plot_df.columns:
         capacities = plot_df[cap_col].values / 1000  # kWh -> MWh
         revenues = plot_df[rev_col].values
-
-        # Revenue bar chart
         x = np.arange(len(capacities))
-        ax1.bar(x, revenues / 1000, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
+
+        # Baseline values from no-battery row (index 1)
+        baseline_rev = df[rev_col].iloc[1] if len(df) > 1 else 0
+        has_spot = sp_col in df.columns and sp_col in plot_df.columns
+        baseline_sp = df[sp_col].iloc[1] if has_spot and len(df) > 1 else None
+        spot_costs = plot_df[sp_col].values if has_spot else None
+
+        # --- Chart 1 ---
+        # Community: show import spot-costs (decreasing = good).
+        # Solar/biogas: show export revenue (increasing = good).
+        if has_spot and scenario == 'community':
+            ax1.bar(x, spot_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
+            ax1.set_ylabel('Spot Cost [T\u20ac]')
+            ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost by Capacity')
+        else:
+            ax1.bar(x, revenues / 1000, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
+            ax1.set_ylabel('Revenue [T\u20ac]')
+            ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Revenue by Capacity')
         ax1.set_xlabel('Battery Capacity [MWh]')
-        ax1.set_ylabel('Revenue [T\u20ac]')
-        ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Revenue by Capacity')
         ax1.set_xticks(x)
         ax1.set_xticklabels([f'{c:.1f}' for c in capacities], rotation=45)
         ax1.grid(axis='y', alpha=0.3)
 
-        # Revenue per kWh
-        rev_per_kwh = []
-        baseline_rev = df[rev_col].iloc[1] if len(df) > 1 else 0
-        for cap_kwh, rev in zip(plot_df[cap_col].values, revenues):
+        # --- Chart 2: Net benefit per kWh ---
+        # Net benefit = revenue_gain + spot_cost_savings
+        # For solar/biogas (spot_cost ≈ 0): net_benefit ≈ revenue_gain (unchanged).
+        # For community: includes import-cost reduction that revenue alone misses.
+        net_per_kwh = []
+        for i, (cap_kwh, rev) in enumerate(zip(plot_df[cap_col].values, revenues)):
             if cap_kwh > 0:
-                rev_per_kwh.append((rev - baseline_rev) / cap_kwh)
+                revenue_gain = rev - baseline_rev
+                spot_savings = (baseline_sp - spot_costs[i]) if has_spot and baseline_sp is not None else 0
+                net_per_kwh.append((revenue_gain + spot_savings) / cap_kwh)
             else:
-                rev_per_kwh.append(0)
+                net_per_kwh.append(0)
 
-        ax2.bar(x, rev_per_kwh, color='#3498db', alpha=0.8, edgecolor='#2980b9')
+        bar_colors = ['#2ecc71' if v >= 0 else '#e74c3c' for v in net_per_kwh]
+        ax2.bar(x, net_per_kwh, color=bar_colors, alpha=0.8, edgecolor='#2980b9')
+        ax2.axhline(y=0, color='black', linewidth=0.8)
         ax2.set_xlabel('Battery Capacity [MWh]')
-        ax2.set_ylabel('Revenue Gain [\u20ac/kWh]')
-        ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Revenue Gain per kWh')
+        ax2.set_ylabel('Net Benefit [\u20ac/kWh]')
+        ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Net Benefit per kWh')
         ax2.set_xticks(x)
         ax2.set_xticklabels([f'{c:.1f}' for c in capacities], rotation=45)
         ax2.grid(axis='y', alpha=0.3)

@@ -116,17 +116,17 @@ community -h</pre>
 
     <h2 id="sec-ausgabe">Ausgabe</h2>
     <p>Zuerst erscheint eine Zusammenfassung der Eingangsdaten:</p>
-    <pre>reference region: _lu, demand: 16.82 GWh, solar: 3.24 GWh, wind 4.61 GWh
-total demand: 16824.0 MWh   total Renewable_Source: 5630.2 MWh</pre>
+    <pre>reference region: _lu, demand: 4961.54 GWh, solar: 296.13 GWh, wind 473.58 GWh
+total demand: 16824.0 MWh   total Renewable_Source: 17586.11 MWh</pre>
     <p>Dann die Ergebnistabelle:</p>
-    <pre>  cap MWh  resi MWh  exfl MWh  autarky  spp [T€]  fixp [T€]  sp €/kWh  fp €/kWh
-  no renew  16824.0       0.0     0.00    1360.4     1850.6      0.00      0.00
-    no bat   4868.1    5630.2     0.71     533.9      535.5      0.00      0.00
-       0.1   4173.1    1582.6     0.75     175.7      459.0      3.58      0.77
-       1.0   3955.9    1365.9     0.76     165.9      435.2      3.68      1.00
-       5.0   3388.7     800.7     0.80     149.6      372.8      3.68      0.81
-      10.0   2716.8     136.3     0.84     131.3      298.9      3.44      0.64
-      20.0   2116.4       0.0     0.87     118.2      233.0      2.98      0.51</pre>
+    <pre>    cap MWh  resi MWh  exfl MWh  autarky  spp [T€]  fixp [T€]  sp €/kWh  fp €/kWh
+   no renew   16824.0       0.0     0.00    1393.9     1850.6      0.00      0.00
+     no bat    4868.0    5360.1     0.71     503.1      535.5      0.00      0.00
+        0.1    4852.6    5341.4     0.71     500.7      533.8     23.54     16.99
+        1.0    4726.8    5186.6     0.72     481.2      520.0     21.86     15.53
+        5.0    4387.3    4750.7     0.74     430.7      482.6     14.49     10.58
+       10.0    4274.1    4559.9     0.75     416.7      470.2      8.64      6.53
+       20.0    4258.6    4412.3     0.75     415.6      468.4      4.38      3.35</pre>
     <p>Spalten:</p>
     <table>
       <tr><th>Spalte</th><th>Bedeutung</th></tr>
@@ -140,21 +140,22 @@ total demand: 16824.0 MWh   total Renewable_Source: 5630.2 MWh</pre>
       <tr><td><code>fp €/kWh</code></td><td>Fixpreis-Einsparung je kWh Kapazität</td></tr>
     </table>
 
-    <h2 id="sec-erkenntnis">Wichtige Erkenntnis: Kleine Speicher, große Wirkung</h2>
+    <h2 id="sec-erkenntnis">Wichtige Erkenntnis: Abnehmender Grenznutzen</h2>
     <div class="info-box">
-      <strong>Der Sweet-Spot liegt bei sehr kleinen Speichern:</strong>
-      Bereits 100 kWh reduzieren die Spotpreis-Kosten um ~358 T€ –
-      das entspricht einem Grenznutzen von ~3,58 €/kWh.
-      Bei 10 MWh ist der Grenznutzen auf ~3,44 €/kWh gesunken –
-      der Mehrwert wächst also kaum noch.
+      <strong>Der Grenznutzen sinkt mit wachsender Speicherkapazität:</strong>
+      100 kWh Speicher bringen ~23,5 €/kWh Spotpreis-Einsparung –
+      bei 1 MWh sind es noch ~21,9 €/kWh,
+      bei 10 MWh ~8,6 €/kWh und
+      bei 20 MWh ~4,4 €/kWh.
+      Ab ~10 MWh verflacht die Kurve deutlich: der Speicher ist groß genug,
+      um die tägliche Solar-Abend-Schwankung vollständig auszugleichen.
     </div>
     <p>
-      Hintergrund: In einem marktberuhigten Jahr (2024) sind die
-      Spotpreise deutlich weniger volatil als in Krisenjahren (2022–23).
-      Der Batteriespeicher lohnt sich primär als <strong>Autarkie-Instrument</strong>,
-      nicht als Arbitrage-Maschine. Ein kleiner Speicher gleicht die
-      tägliche Schwankung zwischen Solarspitze und Abendverbrauch aus –
-      das genügt für den Großteil des erreichbaren Nutzens.
+      Hintergrund: Das Quartier erzeugt tagsüber Überschüsse (Solar + Wind)
+      und hat abends Bedarf. Ein Speicher puffert genau diese Schwankung.
+      Kleine Speicher (0,1–1 MWh) können schon einen großen Teil des
+      Tageszyklus abdecken; größere Speicher bringen proportional weniger,
+      weil sie die gleiche Nische füllen, nur mit mehr Reserve.
     </p>
   </article>
 </section>

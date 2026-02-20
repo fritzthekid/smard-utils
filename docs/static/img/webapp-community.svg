@@ -8,7 +8,7 @@
   <line x1="60"  y1="240" x2="60"  y2="65" stroke="#999" stroke-width="1"/>
   <line x1="60"  y1="240" x2="320" y2="240" stroke="#999" stroke-width="1"/>
 
-  <!-- Y: 0–600 T€, 600=175px → 1=0.292px -->
+  <!-- Y: 0–600 T€, 175px range → 1 T€ = 0.292 px; y = 240 - value*0.292 -->
   <text x="54" y="244" text-anchor="end" fill="#666" font-size="9">0</text>
   <text x="54" y="186" text-anchor="end" fill="#666" font-size="9">200</text>
   <text x="54" y="128" text-anchor="end" fill="#666" font-size="9">400</text>
@@ -17,25 +17,25 @@
   <line x1="60" y1="128" x2="320" y2="128" stroke="#eee" stroke-width="1"/>
   <line x1="60" y1="70"  x2="320" y2="70"  stroke="#eee" stroke-width="1"/>
 
-  <!-- no renew: 1360 T€ (capped at 600 shown) -->
-  <!-- no bat:   534 → 534*0.292=155.9 → y=84 -->
-  <!-- 0.1 MWh:  176 → 51.4 → y=188.6 -->
-  <!-- 1 MWh:    166 → 48.5 → y=191.5 -->
-  <!-- 5 MWh:    150 → 43.8 → y=196.2 -->
-  <!-- 10 MWh:   131 → 38.3 → y=201.7 -->
-  <!-- 20 MWh:   118 → 34.5 → y=205.5 -->
+  <!-- no renew: 1394 T€ → capped, arrow -->
+  <!-- no bat:   503 T€ → 503*0.292=146.9 → y=93.1 -->
+  <!-- 0.1 MWh:  501 T€ → 146.3 → y=93.7 -->
+  <!-- 1 MWh:    481 T€ → 140.5 → y=99.5 -->
+  <!-- 5 MWh:    431 T€ → 125.8 → y=114.2 -->
+  <!-- 10 MWh:   417 T€ → 121.8 → y=118.2 -->
+  <!-- 20 MWh:   416 T€ → 121.5 → y=118.5 -->
 
-  <!-- no renew bar (capped, with arrow) -->
+  <!-- no renew bar (capped) -->
   <rect x="68" y="70" width="28" height="170" fill="#e74c3c" stroke="#c0392b" stroke-width="1"/>
-  <text x="82" y="66" text-anchor="middle" fill="#c0392b" font-size="7">1360 T€</text>
-  <!-- no bat -->
-  <rect x="104" y="84"  width="28" height="156" fill="#e67e22" stroke="#d35400" stroke-width="1"/>
-  <!-- batteries (spot cost, decreasing) -->
-  <rect x="140" y="189" width="28" height="51"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="176" y="192" width="28" height="48"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="212" y="196" width="28" height="44"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="248" y="202" width="28" height="38"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="284" y="205" width="28" height="35"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <text x="82" y="66" text-anchor="middle" fill="#c0392b" font-size="7">1394 T€</text>
+  <!-- no bat: 503 T€ -->
+  <rect x="104" y="93" width="28" height="147" fill="#e67e22" stroke="#d35400" stroke-width="1"/>
+  <!-- batteries (spot cost, gently decreasing) -->
+  <rect x="140" y="94"  width="28" height="146" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="176" y="100" width="28" height="140" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="212" y="114" width="28" height="126" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="248" y="118" width="28" height="122" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="284" y="118" width="28" height="122" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
 
   <text x="82"  y="260" text-anchor="middle" fill="#555" font-size="8">kein EE</text>
   <text x="118" y="260" text-anchor="middle" fill="#555" font-size="8">kein Sp.</text>
@@ -46,35 +46,35 @@
   <text x="298" y="260" text-anchor="middle" fill="#555" font-size="8">20</text>
   <text x="185" y="276" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
 
-  <!-- RIGHT: Autarky -->
-  <text x="530" y="58" text-anchor="middle" fill="#333" font-size="11" font-weight="bold">Autarkierate [0–1]</text>
+  <!-- RIGHT: Grenznutzen (sp €/kWh) -->
+  <text x="530" y="58" text-anchor="middle" fill="#333" font-size="11" font-weight="bold">Grenznutzen [€/kWh]</text>
   <line x1="400" y1="240" x2="400" y2="65" stroke="#999" stroke-width="1"/>
   <line x1="400" y1="240" x2="660" y2="240" stroke="#999" stroke-width="1"/>
 
-  <!-- Y: 0–1, 1=175px -->
-  <text x="394" y="244" text-anchor="end" fill="#666" font-size="9">0.00</text>
-  <text x="394" y="186" text-anchor="end" fill="#666" font-size="9">0.33</text>
-  <text x="394" y="128" text-anchor="end" fill="#666" font-size="9">0.67</text>
-  <text x="394" y="70"  text-anchor="end" fill="#666" font-size="9">1.00</text>
+  <!-- Y: 0–25 €/kWh, 175px range → 1 €/kWh = 7px; y = 240 - value*7 -->
+  <text x="394" y="244" text-anchor="end" fill="#666" font-size="9">0</text>
+  <text x="394" y="186" text-anchor="end" fill="#666" font-size="9">8</text>
+  <text x="394" y="128" text-anchor="end" fill="#666" font-size="9">16</text>
+  <text x="394" y="70"  text-anchor="end" fill="#666" font-size="9">24</text>
   <line x1="400" y1="186" x2="660" y2="186" stroke="#eee" stroke-width="1"/>
   <line x1="400" y1="128" x2="660" y2="128" stroke="#eee" stroke-width="1"/>
   <line x1="400" y1="70"  x2="660" y2="70"  stroke="#eee" stroke-width="1"/>
 
-  <!-- no renew: 0.00 → 0 px -->
-  <!-- no bat:   0.71 → 124.25 → y=115.75 -->
-  <!-- 0.1 MWh:  0.75 → 131.25 → y=108.75 -->
-  <!-- 1 MWh:    0.76 → 133 → y=107 -->
-  <!-- 5 MWh:    0.80 → 140 → y=100 -->
-  <!-- 10 MWh:   0.84 → 147 → y=93 -->
-  <!-- 20 MWh:   0.87 → 152.25 → y=87.75 -->
+  <!-- no renew: 0 (no renew, no sp €/kWh) -->
+  <!-- no bat:   0 -->
+  <!-- 0.1 MWh:  23.54 → 164.8 → y=75.2 -->
+  <!-- 1 MWh:    21.86 → 153.0 → y=87.0 -->
+  <!-- 5 MWh:    14.49 → 101.4 → y=138.6 -->
+  <!-- 10 MWh:    8.64 →  60.5 → y=179.5 -->
+  <!-- 20 MWh:    4.38 →  30.7 → y=209.3 -->
 
   <rect x="408" y="240" width="28" height="0"   fill="#e74c3c" stroke="#c0392b" stroke-width="1"/>
-  <rect x="436" y="116" width="28" height="124" fill="#e67e22" stroke="#d35400" stroke-width="1"/>
-  <rect x="464" y="109" width="28" height="131" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="492" y="107" width="28" height="133" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="520" y="100" width="28" height="140" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="548" y="93"  width="28" height="147" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
-  <rect x="576" y="88"  width="28" height="152" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="436" y="240" width="28" height="0"   fill="#e67e22" stroke="#d35400" stroke-width="1"/>
+  <rect x="464" y="75"  width="28" height="165" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="492" y="87"  width="28" height="153" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="520" y="139" width="28" height="101" fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="548" y="179" width="28" height="61"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
+  <rect x="576" y="209" width="28" height="31"  fill="#2ecc71" stroke="#27ae60" stroke-width="1"/>
 
   <text x="422" y="260" text-anchor="middle" fill="#555" font-size="8">kein EE</text>
   <text x="450" y="260" text-anchor="middle" fill="#555" font-size="8">kein Sp.</text>
@@ -85,5 +85,5 @@
   <text x="590" y="260" text-anchor="middle" fill="#555" font-size="8">20</text>
   <text x="505" y="276" text-anchor="middle" fill="#666" font-size="9">Kapazität [MWh]</text>
 
-  <text x="350" y="295" text-anchor="middle" fill="#555" font-size="9">Bereits 100 kWh reduzieren Spotkosten von 534 → 176 T€ (Grenznutzen ~3,6 €/kWh)</text>
+  <text x="350" y="295" text-anchor="middle" fill="#555" font-size="9">Grenznutzen: 0,1 MWh → 23,5 €/kWh · 1 MWh → 21,9 €/kWh · 10 MWh → 8,6 €/kWh</text>
 </svg>

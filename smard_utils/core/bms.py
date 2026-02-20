@@ -152,9 +152,10 @@ class BatteryManagementSystem:
                 discharge_kwh=discharge_amount,
                 dt_h=self.driver.resolution
             )
-            # Export ALL renewable + battery discharge
-            export_amount = renew + result['net_discharge']
-            self.export_flags[index] = True
+            # Export net surplus only (renew + discharge minus local demand)
+            export_amount = max(0.0, renew + result['net_discharge'] - abs(demand))
+            if export_amount > 0:
+                self.export_flags[index] = True
 
         elif self.strategy.should_charge(context):
             # Case 2: Charge battery
@@ -164,17 +165,18 @@ class BatteryManagementSystem:
                 dt_h=self.driver.resolution
             )
             remaining_renew = renew - charge_amount
-            # Only export leftover if profitable (price > 0 and control permits)
+            # Only export leftover surplus if profitable (price > 0 and control permits)
             if remaining_renew > 0 and self.strategy.should_export(context):
-                export_amount = remaining_renew
-                self.export_flags[index] = True
+                export_amount = max(0.0, remaining_renew - abs(demand))
+                if export_amount > 0:
+                    self.export_flags[index] = True
             else:
                 export_amount = 0  # Energy wasted!
 
         elif self.strategy.should_export(context):
             # Case 3: Export without battery action
             result = self.battery.execute(dt_h=self.driver.resolution)
-            export_amount = max(0, renew)
+            export_amount = max(0.0, renew - abs(demand))
             if export_amount > 0:
                 self.export_flags[index] = True
         else:

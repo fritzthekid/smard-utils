@@ -196,7 +196,8 @@ class DynamicDischargeStrategy(BMSStrategy):
             context['power_limit'] * context['resolution'],
             (max_soc * context['capacity']) - context['current_storage']
         )
-        return min(context['renew'], allowed_energy)
+        surplus = max(0.0, context['renew'] - abs(context.get('demand', 0)))
+        return min(surplus, allowed_energy)
 
     def calculate_discharge_amount(self, context: dict) -> float:
         """
@@ -226,4 +227,17 @@ class DynamicDischargeStrategy(BMSStrategy):
 
         # Apply saturation curve to modulate discharge
         factor = self._saturation_curve(df, df_param, df_min, sub)
-        return factor * allowed_energy
+        result = factor * allowed_energy
+
+        # For community scenarios: only discharge to cover local deficit.
+        # - Surplus hour (renew >= demand): no discharge needed, return 0.
+        # - Deficit hour (renew < demand): cap discharge at the actual deficit.
+        # For solar/biogas (demand < 0): guard is False, discharge normally.
+        demand = context.get('demand', 0)
+        if demand > 0:
+            net_deficit = demand - context['renew']
+            if net_deficit <= 0:
+                return 0.0  # Surplus hour: battery not needed
+            result = min(result, net_deficit)
+
+        return result
