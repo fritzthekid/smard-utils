@@ -41,6 +41,16 @@
                 <input type="text" id="powers" name="powers" value="{{ scenario_info.default_powers }}">
             </div>
 
+            {% if scenario_info.capacity_params %}
+            <div class="form-group capacity-params">
+                {% for cp in scenario_info.capacity_params %}
+                <label for="cp_{{ cp.key }}">{{ cp.label }}:</label>
+                <input type="number" id="cp_{{ cp.key }}" name="{{ cp.key }}"
+                       value="{{ cp.default }}" step="any" min="0">
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <div class="form-group">
                 <label for="datafile">Eigene SMARD-Daten (CSV):</label>
                 <input type="file" id="datafile" name="datafile" accept=".csv">

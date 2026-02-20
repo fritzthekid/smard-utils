@@ -207,6 +207,8 @@ def main(argv=None):
         description="Solar battery system analysis with dynamic discharge",
         default_strategy="dynamic_discharge",
     )
+    parser.add_argument("--solar", type=float, default=None, metavar="KWP",
+                        help="Solar peak power in kWp (default: 10000)")
     args = parser.parse_args(argv)
 
     region = f"_{args.region}"
@@ -216,6 +218,8 @@ def main(argv=None):
         basic_data_set["year"] = args.year
 
     basic_data_set["strategy"] = args.strategy
+    if args.solar is not None:
+        basic_data_set["solar_max_power"] = args.solar
 
     if not os.path.exists(data_file):
         print(f"Data file not found: {data_file}")

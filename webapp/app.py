@@ -61,6 +61,9 @@ SCENARIOS = {
         'default_capacities': '1, 5, 10, 20, 100',
         'default_powers': '0.5, 2.5, 5, 10, 50',
         'default_region': 'de',
+        'capacity_params': [
+            {'key': 'constant_biogas_kw', 'label': 'Biogas Nennleistung [kW]', 'default': 1000},
+        ],
     },
     'solar': {
         'name': 'Solar (SolBatSys)',
@@ -70,6 +73,9 @@ SCENARIOS = {
         'default_capacities': '1, 5, 10, 20, 50, 70',
         'default_powers': '0.5, 2.5, 5, 10, 25, 35',
         'default_region': 'de',
+        'capacity_params': [
+            {'key': 'solar_max_power', 'label': 'Solar Peak [kWp]', 'default': 10000},
+        ],
     },
     'community': {
         'name': 'Community (SmardAnalyseSys)',
@@ -79,6 +85,10 @@ SCENARIOS = {
         'default_capacities': '0.1, 1, 5, 10, 20',
         'default_powers': '0.05, 0.5, 2.5, 5, 10',
         'default_region': 'lu',
+        'capacity_params': [
+            {'key': 'solar_max_power', 'label': 'Solar Peak [kWp]', 'default': 5000},
+            {'key': 'wind_nominal_power', 'label': 'Wind Nenn [kW]', 'default': 5000},
+        ],
     },
 }
 
@@ -253,6 +263,15 @@ def run_analysis():
         # Build configuration
         basic_data_set = sc['defaults'].copy()
         basic_data_set['strategy'] = strategy
+
+        # Apply optional capacity params (solar/wind/biogas)
+        for cp in sc.get('capacity_params', []):
+            val = request.form.get(cp['key'], '')
+            if val.strip():
+                try:
+                    basic_data_set[cp['key']] = float(val)
+                except ValueError:
+                    pass
 
         # Create analyzer and run
         region_code = f"_{region}"

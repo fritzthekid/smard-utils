@@ -247,6 +247,10 @@ def main(argv=None):
         default_strategy="dynamic_discharge",
         default_region="lu",
     )
+    parser.add_argument("--solar", type=float, default=None, metavar="KWP",
+                        help="Solar peak power in kWp (default: 5000)")
+    parser.add_argument("--wind", type=float, default=None, metavar="KW",
+                        help="Wind nominal power in kW (default: 5000)")
     args = parser.parse_args(argv)
 
     region = f"_{args.region}"
@@ -256,6 +260,10 @@ def main(argv=None):
         basic_data_set["year"] = args.year
 
     basic_data_set["strategy"] = args.strategy
+    if args.solar is not None:
+        basic_data_set["solar_max_power"] = args.solar
+    if args.wind is not None:
+        basic_data_set["wind_nominal_power"] = args.wind
 
     if not os.path.exists(data_file):
         print(f"Data file not found: {data_file}")

@@ -249,6 +249,8 @@ def main(argv=None):
         description="Biogas battery system analysis with spot-price trading",
         default_strategy="price_threshold",
     )
+    parser.add_argument("--biogas", type=float, default=None, metavar="KW",
+                        help="Biogas nominal power in kW (default: 1000)")
     args = parser.parse_args(argv)
 
     region = f"_{args.region}"
@@ -258,6 +260,8 @@ def main(argv=None):
         basic_data_set["year"] = args.year
 
     basic_data_set["strategy"] = args.strategy
+    if args.biogas is not None:
+        basic_data_set["constant_biogas_kw"] = args.biogas
 
     if not os.path.exists(data_file):
         print(f"Data file not found: {data_file}")
