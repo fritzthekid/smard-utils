@@ -320,16 +320,15 @@ def run_analysis():
         table_text = stdout_capture.getvalue()
 
         # Generate chart and save CSV
+        sdir = make_sessiondir()  # recreate dir if server restarted
         if scenario == 'home':
-            chart_filename = generate_home_chart(analyzer, sessiondir())
+            chart_filename = generate_home_chart(analyzer, sdir)
             if analyzer.results_df is not None:
-                csv_path = os.path.join(sessiondir(), 'results.csv')
-                analyzer.results_df.to_csv(csv_path, index=False)
+                analyzer.results_df.to_csv(os.path.join(sdir, 'results.csv'), index=False)
         else:
-            chart_filename = generate_chart(analyzer, scenario, sessiondir())
+            chart_filename = generate_chart(analyzer, scenario, sdir)
             if analyzer.battery_results is not None:
-                csv_path = os.path.join(sessiondir(), 'results.csv')
-                analyzer.battery_results.to_csv(csv_path, index=False)
+                analyzer.battery_results.to_csv(os.path.join(sdir, 'results.csv'), index=False)
 
         session['output_file'] = chart_filename
 

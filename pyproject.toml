@@ -25,6 +25,7 @@ dependencies = [
     "seaborn",
     "flask",
     "requests",
+    "uwsgi (>=2.0.31,<3.0.0)",
 ]
 
 [project.optional-dependencies]
