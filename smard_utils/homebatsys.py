@@ -280,6 +280,12 @@ examples:
         help="Battery power list in kW (default: 3.5 7 8.5 10)",
     )
     parser.add_argument(
+        "-s", "--strategy",
+        choices=["autarky"],
+        default="autarky",
+        help="BMS strategy (only 'autarky' is supported for home storage)",
+    )
+    parser.add_argument(
         "-c", "--config",
         default=None,
         metavar="FILE",

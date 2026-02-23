@@ -12,11 +12,13 @@ title: BMS-Strategien
       <li><a href="#sec-threshold">price_threshold</a></li>
       <li><a href="#sec-dynamic">dynamic_discharge</a></li>
       <li><a href="#sec-dayahead">day_ahead</a></li>
+      <li><a href="#sec-autarky">autarky</a></li>
       <li><a href="#sec-vergleich">Wann was verwenden?</a></li>
       <hr>
       <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
       <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
       <li><a href="community.html">Community</a></li>
+      <li><a href="homebatsys.html">Heimspeicher (homebatsys)</a></li>
       <li><a href="webapp.html">Web-App</a></li>
     </ul>
   </nav>
@@ -135,6 +137,37 @@ Idle:      sonst</pre>
     <p><strong>Geeignet für:</strong> Alle Szenarien, wenn eine
     realistische Abschätzung des erreichbaren Erlöses gefragt ist.</p>
 
+    <h2 id="sec-autarky">autarky – Autarkiestrategie</h2>
+    <p>
+      <strong>Standardstrategie für homebatsys (Heimspeicher).</strong>
+    </p>
+    <p>
+      Maximiert die Eigenversorgung eines Haushalts aus Photovoltaik ohne
+      Kenntnis von Spotpreisen. Entscheidungsbaum pro Zeitschritt:
+    </p>
+    <pre>Überschuss  = Solar − Verbrauch
+Defizit     = Verbrauch − Solar
+
+Entladen:   Defizit &gt; 0  und  SOC &gt; min_soc   → Defizit decken
+Laden:      Überschuss &gt; 0 und  SOC &lt; max_soc  → Überschuss speichern
+Einspeisen: Überschuss &gt; 0 und  Batterie voll  → physischer Überschuss
+Idle:       sonst</pre>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>min_soc</code></td><td>0,05</td><td>Minimaler SOC (5 % Puffer)</td></tr>
+      <tr><td><code>max_soc</code></td><td>0,95</td><td>Maximaler SOC</td></tr>
+      <tr><td><code>efficiency_discharge</code></td><td>0,96</td><td>Entlade-Wirkungsgrad</td></tr>
+    </table>
+    <div class="info-box">
+      <strong>Wichtig:</strong> Die Autarky-Strategie verwendet <em>keine Spotpreise</em>.
+      Stattdessen arbeitet sie rein physisch: Solarer Überschuss wird gespeichert,
+      Versorgungsdefizit wird aus dem Speicher gedeckt.
+      Sie ist daher <strong>nur für homebatsys</strong> sinnvoll – biobatsys, solbatsys
+      und community arbeiten mit einer anderen Vorzeichenkonvention.
+    </div>
+    <p><strong>Geeignet für:</strong> Haushaltsspeicher, PV-Eigenstromnutzung,
+    Autarkieoptimierung mit Fixstromtarif.</p>
+
     <h2 id="sec-vergleich">Wann welche Strategie?</h2>
     <table>
       <tr>
@@ -157,13 +190,19 @@ Idle:      sonst</pre>
       </tr>
       <tr>
         <td><code>day_ahead</code></td>
-        <td>alle</td>
+        <td>biobatsys, solbatsys, community</td>
         <td>Realistische Informationsgrenze</td>
         <td>Etwas geringerer Erlös als dynamic_discharge</td>
       </tr>
+      <tr>
+        <td><code>autarky</code></td>
+        <td>homebatsys</td>
+        <td>Rein physisch, kein Spotpreis nötig</td>
+        <td>Nur für Haushaltsspeicher sinnvoll</td>
+      </tr>
     </table>
     <p>
-      Alle drei Strategien sind in jedem Kommando verfügbar:
+      Spotpreis-Strategien (biobatsys, solbatsys, community):
     </p>
     <pre>biobatsys   -s price_threshold     # Standard
 biobatsys   -s dynamic_discharge
@@ -174,5 +213,7 @@ solbatsys   -s day_ahead
 
 community   -s dynamic_discharge   # Standard
 community   -s day_ahead</pre>
+    <p>Autarky-Strategie (homebatsys):</p>
+    <pre>homebatsys  -d 2024-home.csv -s autarky   # Standard (einzige Option)</pre>
   </article>
 </section>

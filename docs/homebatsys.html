@@ -1,0 +1,170 @@
+---
+layout: default
+title: Homebatsys – Heimspeicher
+---
+
+<section>
+  <nav>
+    <ul>
+      <li><a href="{{ site.baseurl }}/">← Übersicht</a></li>
+      <hr>
+      <li><a href="#sec-szenario">Szenario</a></li>
+      <li><a href="#sec-strategie">Autarky-Strategie</a></li>
+      <li><a href="#sec-kennzahlen">Kennzahlen</a></li>
+      <li><a href="#sec-eingabe">Eingabedaten</a></li>
+      <li><a href="#sec-konfiguration">Konfiguration</a></li>
+      <li><a href="#sec-befehle">Befehle</a></li>
+      <li><a href="#sec-ausgabe">Ausgabe</a></li>
+      <hr>
+      <li><a href="biobatsys.html">Biogas (biobatsys)</a></li>
+      <li><a href="solbatsys.html">Solar (solbatsys)</a></li>
+      <li><a href="community.html">Community</a></li>
+      <li><a href="strategies.html">Strategien</a></li>
+      <li><a href="webapp.html">Web-App</a></li>
+    </ul>
+  </nav>
+
+  <article>
+    <h1>homebatsys – Heimspeicher Autarkieanalyse</h1>
+
+    <h2 id="sec-szenario">Szenario</h2>
+    <p>
+      <code>homebatsys</code> simuliert einen Haushaltsbatteriespeicher,
+      der zusammen mit einer Photovoltaikanlage betrieben wird.
+      Ziel ist die Maximierung der <strong>Eigenversorgung (Autarkie)</strong>:
+      Solarer Überschuss wird im Speicher gepuffert und bei Verbrauchsdefizit
+      wieder abgegeben.
+    </p>
+    <div class="info-box">
+      <strong>Kein Spotpreis erforderlich.</strong>
+      Im Gegensatz zu biobatsys, solbatsys und community benötigt
+      homebatsys keine EPEX-Spotpreise. Es genügt ein fester
+      Haushaltsstrompreis (€/kWh).
+    </div>
+    <p>
+      Typische Eingabe: Jahresdaten eines Haushalts mit 15-Minuten-Auflösung
+      aus dem SENEC-Monitoring (konvertiert mit <code>senec2smardformat</code>)
+      oder aus einer manuellen Aufzeichnung.
+    </p>
+
+    <h2 id="sec-strategie">Autarky-Strategie</h2>
+    <p>
+      homebatsys verwendet ausschließlich die
+      <a href="strategies.html#sec-autarky"><code>autarky</code>-Strategie</a>.
+      Der Entscheidungsbaum pro Zeitschritt:
+    </p>
+    <pre>Überschuss  = Solar − Verbrauch
+Defizit     = Verbrauch − Solar
+
+Entladen:   Defizit &gt; 0  und  SOC &gt; min_soc   → Defizit decken
+Laden:      Überschuss &gt; 0 und  SOC &lt; max_soc  → Überschuss speichern
+Einspeisen: Überschuss &gt; 0 und  Batterie voll  → physischer Export
+Idle:       sonst</pre>
+    <p>
+      Die Ladestrategie wird per <code>-s autarky</code> angegeben (Standard,
+      derzeit einzige Option).
+    </p>
+
+    <h2 id="sec-kennzahlen">Kennzahlen</h2>
+    <table>
+      <tr><th>Spalte</th><th>Beschreibung</th></tr>
+      <tr><td><code>cap [kWh]</code></td><td>Batteriekapazität in kWh</td></tr>
+      <tr><td><code>grid [kWh]</code></td><td>Jährlicher Netzbezug nach Speichereinsatz</td></tr>
+      <tr><td><code>savings [€]</code></td><td>Jährliche Einsparung (vermiedener Netzbezug × Strompreis + Mehreinspeisung × Einspeisevergütung)</td></tr>
+      <tr><td><code>autarky [%]</code></td><td>Autarkiegrad: 1 − Netzbezug / Gesamtverbrauch</td></tr>
+      <tr><td><code>selfcons [%]</code></td><td>Eigenverbrauchsquote: 1 − Einspeisung / Solarertrag</td></tr>
+      <tr><td><code>€/kWh</code></td><td>Jährliche Einsparung pro kWh Kapazität (Investitionsindikator)</td></tr>
+      <tr><td><code>cycles</code></td><td>Äquivalente Vollzyklen pro Jahr</td></tr>
+    </table>
+
+    <h2 id="sec-eingabe">Eingabedaten</h2>
+    <p>
+      homebatsys erwartet eine SMARD-Format-CSV mit Semikolon-Trennung und
+      Komma-Dezimalzeichen. Mindestens folgende Spalten müssen vorhanden sein:
+    </p>
+    <table>
+      <tr><th>Spalte</th><th>Inhalt</th></tr>
+      <tr><td><code>Datum</code></td><td>Datum TT.MM.JJJJ</td></tr>
+      <tr><td><code>Uhrzeit</code></td><td>Uhrzeit HH:MM</td></tr>
+      <tr><td><code>Photovoltaik [MWh]</code></td><td>Solarertrag in kWh pro Periode</td></tr>
+      <tr><td><code>Gesamtverbrauch (Netzlast) [MWh]</code></td><td>Haushaltsbedarf in kWh pro Periode</td></tr>
+    </table>
+    <p>
+      Trotz des Spaltennamens <code>[MWh]</code> werden die Werte als kWh interpretiert –
+      SENEC-Monitoring liefert Haushaltsdaten bereits in kWh.
+    </p>
+    <p>
+      Haushaltsdaten vom SENEC-Monitor können mit <code>senec2smardformat</code>
+      in dieses Format konvertiert werden.
+    </p>
+
+    <h2 id="sec-konfiguration">Konfiguration</h2>
+    <table>
+      <tr><th>Parameter</th><th>Standard</th><th>Bedeutung</th></tr>
+      <tr><td><code>fix_price</code></td><td>0,28</td><td>Haushaltsstrompreis in €/kWh (inkl. aller Abgaben)</td></tr>
+      <tr><td><code>feed_in_price</code></td><td>0,0</td><td>Einspeisevergütung in €/kWh (0 = keine Vergütung)</td></tr>
+      <tr><td><code>min_soc</code></td><td>0,05</td><td>Minimaler Ladezustand (5 % Puffer)</td></tr>
+      <tr><td><code>max_soc</code></td><td>0,95</td><td>Maximaler Ladezustand</td></tr>
+      <tr><td><code>efficiency_discharge</code></td><td>0,96</td><td>Entlade-Wirkungsgrad</td></tr>
+    </table>
+    <p>
+      Alle Parameter können in einer JSON-Konfigurationsdatei gesetzt werden:
+    </p>
+    <pre>{
+  "fix_price": 0.32,
+  "feed_in_price": 0.082,
+  "min_soc": 0.1
+}</pre>
+
+    <h2 id="sec-befehle">Befehle</h2>
+    <pre># Minimaler Aufruf mit Standardkapazitäten (5, 10, 15, 20 kWh)
+homebatsys -d 2024-home.csv
+
+# Mit eigenem Strompreis und Einspeisevergütung
+homebatsys -d 2024-home.csv --fix-price 0.32 --feed-in 0.082
+
+# Eigene Kapazitäts- und Leistungsliste
+homebatsys -d 2024-home.csv --capacity 5 10 20 --power 3.5 7 10
+
+# Mit Konfigurationsdatei
+homebatsys -d 2024-home.csv -c basic_data_set.conf</pre>
+
+    <table>
+      <tr><th>Option</th><th>Beschreibung</th></tr>
+      <tr><td><code>-d, --data FILE</code></td><td>Pfad zur SMARD-Format-CSV (Pflichtangabe)</td></tr>
+      <tr><td><code>-s, --strategy autarky</code></td><td>Strategie (Standard: autarky – einzige Option)</td></tr>
+      <tr><td><code>--fix-price EUR_KWH</code></td><td>Haushaltsstrompreis in €/kWh (Standard: 0,28)</td></tr>
+      <tr><td><code>--feed-in EUR_KWH</code></td><td>Einspeisevergütung in €/kWh (Standard: 0)</td></tr>
+      <tr><td><code>--capacity KWH …</code></td><td>Kapazitätsliste in kWh (Standard: 5 10 15 20)</td></tr>
+      <tr><td><code>--power KW …</code></td><td>Leistungsliste in kW – gleiche Länge wie Kapazitäten</td></tr>
+      <tr><td><code>-c, --config FILE</code></td><td>JSON-Konfigurationsdatei</td></tr>
+    </table>
+
+    <h2 id="sec-ausgabe">Ausgabe</h2>
+    <p>
+      Beispielausgabe für einen Haushalt mit 4.000 kWh/Jahr Solar und
+      3.500 kWh/Jahr Verbrauch:
+    </p>
+    <pre>========================================================================
+Home Battery Autarky Analysis
+  Fix price : 0.280 €/kWh
+  Solar     : 4012 kWh/year
+  Demand    : 3487 kWh/year
+========================================================================
+ cap [kWh]  grid [kWh]  savings [€]  autarky [%]  selfcons[%]  €/kWh  cycles
+ 0 (no bat)        2108            0         39.6         46.9      -       -
+         5        1612          139         53.8         59.7   27.8     167
+        10        1298          227         62.8         67.8   22.7     145
+        15        1165          264         66.6         71.1   17.6     112
+        20        1108          280         68.2         72.5   14.0      88
+========================================================================
+  €/kWh = annual savings per kWh of battery capacity</pre>
+
+    <p>
+      Die Zeile <code>0 (no bat)</code> ist die Referenz ohne Speicher.
+      Alle weiteren Zeilen zeigen die Verbesserung durch den jeweiligen Speicher.
+      Der <code>€/kWh</code>-Wert ist der wichtigste Investitionsindikator:
+      Er gibt an, wie viel jährliche Einsparung pro kWh Kapazität erzielt wird.
+    </p>
+  </article>
+</section>

@@ -17,6 +17,7 @@ title: Webanwendung
           <li><a href="#sec-biogas">Biogas</a></li>
           <li><a href="#sec-solar">Solar</a></li>
           <li><a href="#sec-community">Community</a></li>
+          <li><a href="#sec-home">Heimspeicher</a></li>
         </ul>
       </li>
       <li><a href="#sec-strategien">Strategien</a>
@@ -24,6 +25,7 @@ title: Webanwendung
           <li><a href="#sec-threshold">price_threshold</a></li>
           <li><a href="#sec-dynamic">dynamic_discharge</a></li>
           <li><a href="#sec-dayahead">day_ahead</a></li>
+          <li><a href="#sec-autarky">autarky</a></li>
         </ul>
       </li>
       <li><a href="#sec-lokal">Lokale Installation</a></li>
@@ -31,6 +33,7 @@ title: Webanwendung
       <li><a href="biobatsys.html">Biogas (CLI)</a></li>
       <li><a href="solbatsys.html">Solar (CLI)</a></li>
       <li><a href="community.html">Community (CLI)</a></li>
+      <li><a href="homebatsys.html">Heimspeicher (CLI)</a></li>
       <li><a href="strategies.html">Strategien (CLI)</a></li>
     </ul>
   </nav>
@@ -39,7 +42,7 @@ title: Webanwendung
     <h1>Webanwendung</h1>
 
     <p>
-      Die SMARD-Utils Webanwendung stellt die drei Analyseszenarien
+      Die SMARD-Utils Webanwendung stellt alle vier Analyseszenarien
       über ein Browserformular bereit – ohne Kommandozeile.
       Ergebnisse werden als interaktiver Balkendiagramm (SVG)
       und als Text-Tabelle dargestellt; beide können heruntergeladen werden.
@@ -86,12 +89,12 @@ title: Webanwendung
     <p>Formularfelder:</p>
     <table>
       <tr><th>Feld</th><th>Bedeutung</th></tr>
-      <tr><td>Szenario</td><td>Biogas / Solar / Community – jederzeit wechselbar</td></tr>
-      <tr><td>Strategie</td><td><code>price_threshold</code>, <code>dynamic_discharge</code> oder <code>day_ahead</code></td></tr>
-      <tr><td>Region</td><td><code>de</code> (Deutschland) oder <code>lu</code> (Luxemburg)</td></tr>
-      <tr><td>Kapazitäten [MWh]</td><td>Kommagetrennte Liste der Speichergrößen, z.B. <code>1, 5, 10, 20, 100</code></td></tr>
-      <tr><td>Leistungen [MW]</td><td>Kommagetrennte Maximalleistungen (gleiche Länge wie Kapazitäten)</td></tr>
-      <tr><td>Eigene SMARD-Daten</td><td>Optional: eigene SMARD-CSV hochladen statt Standarddatei</td></tr>
+      <tr><td>Szenario</td><td>Biogas / Solar / Community / Heimspeicher – jederzeit wechselbar</td></tr>
+      <tr><td>Strategie</td><td>Je nach Szenario: <code>price_threshold</code>, <code>dynamic_discharge</code>, <code>day_ahead</code> oder <code>autarky</code></td></tr>
+      <tr><td>Region</td><td><code>de</code> (Deutschland) oder <code>lu</code> (Luxemburg) – nur für Spotpreis-Szenarien</td></tr>
+      <tr><td>Kapazitäten [MWh/kWh]</td><td>Kommagetrennte Liste der Speichergrößen</td></tr>
+      <tr><td>Leistungen [MW/kW]</td><td>Kommagetrennte Maximalleistungen (gleiche Länge wie Kapazitäten)</td></tr>
+      <tr><td>Haushaltsdaten / Eigene SMARD-Daten</td><td>Optional: eigene CSV hochladen statt Standarddatei</td></tr>
     </table>
     <p>
       Mit <strong>Analyse starten</strong> wird die Berechnung ausgeführt.
@@ -155,6 +158,27 @@ title: Webanwendung
          alt="Community Ergebnis-Chart – Platzhalter für Screenshot"
          style="width:100%; max-width:700px; display:block; margin: 16px 0;">
 
+    <h3 id="sec-home">Heimspeicher (HomeBatSys)</h3>
+    <p>
+      Simuliert einen Haushaltsspeicher, der mit einer Photovoltaikanlage
+      zusammenarbeitet. Ziel ist die Maximierung der Eigenversorgung (Autarkie).
+      Es werden <strong>keine Spotpreise</strong> benötigt – als Eingabe
+      genügen ein fester Haushaltsstrompreis und die gemessenen Solar- und
+      Verbrauchsdaten.
+    </p>
+    <p>
+      Als Standarddatei wird <code>data/smard_format/2024-home-smardformat.csv</code>
+      verwendet; eine eigene Haushaltsdatei kann hochgeladen werden.
+    </p>
+    <p>Standardwerte: Kapazitäten <code>5, 10, 15, 20</code> kWh –
+       Leistungen <code>3.5, 7.0, 8.5, 10.0</code> kW –
+       Strompreis <code>0,28 €/kWh</code> – Einspeisevergütung <code>0 €/kWh</code></p>
+    <p>
+      Das Diagramm zeigt den jährlichen Netzbezug und den Autarkiegrad
+      in Abhängigkeit von der Speicherkapazität.
+      Ausführliche CLI-Dokumentation: <a href="homebatsys.html">homebatsys</a>.
+    </p>
+
     <hr>
     <h2 id="sec-strategien">Strategien in der Webanwendung</h2>
     <p>
@@ -194,6 +218,15 @@ title: Webanwendung
     <img src="static/img/strategy-day-ahead.svg"
          alt="Strategie day_ahead – Platzhalter für Screenshot"
          style="width:100%; max-width:700px; display:block; margin: 16px 0;">
+
+    <h3 id="sec-autarky">autarky</h3>
+    <p>
+      Ausschließlich für das <strong>Heimspeicher</strong>-Szenario.
+      Maximiert die Eigenversorgung ohne Kenntnis von Spotpreisen:
+      Solarer Überschuss wird gepuffert, Versorgungsdefizit wird aus
+      dem Speicher gedeckt.
+      Detaillierte Beschreibung: <a href="strategies.html#sec-autarky">Strategien – autarky</a>.
+    </p>
 
     <hr>
     <h2 id="sec-lokal">Lokale Installation</h2>

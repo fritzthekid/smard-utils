@@ -96,13 +96,13 @@ SCENARIOS = {
         'name': 'Heimspeicher (HomeBatSys)',
         'class': HomeBatSys,
         'defaults': home_defaults,
-        'default_strategy': '',
+        'default_strategy': 'autarky',
         'default_capacities': '5, 10, 15, 20',
         'default_powers': '3.5, 7.0, 8.5, 10.0',
         'default_region': '',
         'capacity_unit': 'kWh',
         'power_unit': 'kW',
-        'no_strategy': True,
+        'strategies': ['autarky'],
         'no_region': True,
         'capacity_params': [
             {'key': 'fix_price', 'label': 'Strompreis [\u20ac/kWh]', 'default': 0.28},
@@ -111,7 +111,7 @@ SCENARIOS = {
     },
 }
 
-STRATEGIES = ['price_threshold', 'dynamic_discharge', 'day_ahead']
+STRATEGIES = ['price_threshold', 'dynamic_discharge', 'day_ahead', 'autarky']
 
 
 # --- Session management ---
@@ -240,7 +240,7 @@ def show_analysis(scenario):
     return render_template('analysis.html',
                            scenario=scenario,
                            scenario_info=sc,
-                           strategies=STRATEGIES,
+                           strategies=sc.get('strategies', STRATEGIES),
                            scenarios=SCENARIOS,
                            authenticated=is_authenticated())
 
@@ -273,6 +273,8 @@ def run_analysis():
         uploaded_file = request.form.get('uploaded_file', '')
         if uploaded_file:
             data_file = os.path.join(sessiondir(), uploaded_file)
+        elif scenario == 'home':
+            data_file = os.path.join(root_dir, 'data/smard_format/2024-home-smardformat.csv')
         else:
             data_file = os.path.join(root_dir, f'quarterly/smard_data_{region}/smard_2024_complete.csv')
 
