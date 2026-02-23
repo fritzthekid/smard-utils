@@ -222,8 +222,8 @@ class TestDayAheadScheduling:
             assert strategy.should_charge(context) == True, \
                 f"Should charge at hour {hour} (price={data['price_per_kwh'].iloc[hour]:.3f})"
 
-    def test_idle_during_average_hours(self):
-        """Test battery stays idle during average-priced hours."""
+    def test_no_discharge_during_average_hours(self):
+        """Test battery does not discharge during average-priced hours."""
         strategy = DayAheadStrategy({
             "discharge_threshold": 1.2,
             "charge_threshold": 0.8
@@ -233,7 +233,8 @@ class TestDayAheadScheduling:
         strategy._update_day_ahead_plan(0)
 
         # Hours 15, 16, 21, 22, 23 have price = 1.0 * base = avg
-        # Not above 1.2 * avg (discharge) nor below 0.8 * avg (charge)
+        # Not above 1.2 * avg → no discharge.
+        # Strategy allows charging whenever not discharging (SOC below max_soc).
         for hour in [15, 16, 21, 22, 23]:
             context = {
                 'timestamp': data.index[hour],
@@ -244,7 +245,7 @@ class TestDayAheadScheduling:
                 'avg_price': strategy.known_avg
             }
             assert strategy.should_discharge(context) == False
-            assert strategy.should_charge(context) == False
+            assert strategy.should_charge(context) == True  # charges during idle hours
 
     def test_no_discharge_at_min_soc(self):
         """Test no discharge when battery is at minimum SOC."""

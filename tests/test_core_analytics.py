@@ -122,6 +122,7 @@ class TestBatteryAnalytics:
                 'residual_kwh': 10.0,
                 'export_kwh': 90.0,
                 'loss_kwh': 5.0,
+                'net_discharge': 50.0,
                 'price': 0.15
             })
 
@@ -153,6 +154,7 @@ class TestBatteryAnalytics:
                 'residual_kwh': 10.0,
                 'export_kwh': 70.0,
                 'loss_kwh': 0.0,
+                'net_discharge': 0.0,
                 'price': 0.15
             })
 
@@ -184,6 +186,7 @@ class TestBatteryAnalytics:
                 'residual_kwh': 10.0,
                 'export_kwh': 90.0,
                 'loss_kwh': 5.0,
+                'net_discharge': 50.0,
                 'price': 0.15
             })
 
@@ -215,7 +218,7 @@ class TestBatteryAnalytics:
         # Add multiple simulations
         for capacity in [1000, 2000, 3000]:
             step_results = [
-                {'residual_kwh': 10, 'export_kwh': 90, 'loss_kwh': 5, 'price': 0.15}
+                {'residual_kwh': 10, 'export_kwh': 90, 'loss_kwh': 5, 'net_discharge': 50, 'price': 0.15}
                 for _ in range(24)
             ]
             bms = MockBMS()
@@ -244,6 +247,7 @@ class TestBatteryAnalytics:
                     'residual_kwh': 10,
                     'export_kwh': 90 + i * 10,  # Increasing export
                     'loss_kwh': 5,
+                    'net_discharge': 50,
                     'price': 0.15
                 })
             bms = MockBMS()
@@ -285,7 +289,7 @@ class TestBatteryAnalytics:
 
         # Add small-scale simulation (should use kWh)
         step_results = [
-            {'residual_kwh': 10, 'export_kwh': 90, 'loss_kwh': 5, 'price': 0.15}
+            {'residual_kwh': 10, 'export_kwh': 90, 'loss_kwh': 5, 'net_discharge': 50, 'price': 0.15}
             for _ in range(24)
         ]
         bms = MockBMS()
@@ -304,7 +308,7 @@ class TestBatteryAnalytics:
 
         # Add large-scale simulation (should use MWh)
         step_results = [
-            {'residual_kwh': 10000, 'export_kwh': 90000, 'loss_kwh': 5000, 'price': 0.15}
+            {'residual_kwh': 10000, 'export_kwh': 90000, 'loss_kwh': 5000, 'net_discharge': 50000, 'price': 0.15}
             for _ in range(24)
         ]
         bms = MockBMS()
