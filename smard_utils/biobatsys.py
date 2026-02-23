@@ -58,6 +58,7 @@ class BioBatSys:
         # Storage for results
         self.battery_results = None
         self.exporting_l = []
+        self.fcr_revenues_l = []
         self.resolution = self.driver.resolution
         self.data = self.driver.data
 
@@ -72,12 +73,21 @@ class BioBatSys:
         """
         print("\nStarting biogas battery analysis...")
 
+        # FCR (Regelleistung) parameters
+        fcr_capacity_kw = self.basic_data_set.get("fcr_capacity_kw", 0)
+        fcr_price = self.basic_data_set.get("fcr_price_eur_per_kw_year", 0)
+
         # Run simulations (including 0.0 MWh for no-battery baseline)
         full_capacity_list = [0.0] + list(capacity_list)
         full_power_list = [0.0] + list(power_list)
 
         for capacity, power in zip(full_capacity_list, full_power_list):
-            battery = Battery(self.basic_data_set, capacity * 1000, power * 1000)
+            power_kw = power * 1000
+            # Reserve FCR capacity from arbitrage power (cannot exceed battery power)
+            fcr_kw = min(fcr_capacity_kw, power_kw)
+            arbitrage_power_kw = power_kw - fcr_kw
+
+            battery = Battery(self.basic_data_set, capacity * 1000, arbitrage_power_kw)
             bms = BatteryManagementSystem(self.strategy, battery, self.driver)
             bms.initialize()
 
@@ -91,7 +101,7 @@ class BioBatSys:
 
             # Record results
             result_dict = self.analytics.add_simulation_result(
-                capacity * 1000, power * 1000, bms, results
+                capacity * 1000, power_kw, bms, results
             )
 
             # Track export flags for print method
@@ -99,6 +109,9 @@ class BioBatSys:
                 np.size(bms.export_flags) - np.count_nonzero(bms.export_flags),
                 bms.export_flags.sum()
             ))
+
+            # FCR annual revenue for this battery size
+            self.fcr_revenues_l.append(fcr_kw * fcr_price)
 
         # Get results DataFrame (standard format)
         self.battery_results = self.analytics.get_results_dataframe()
@@ -119,15 +132,18 @@ class BioBatSys:
         """
         df = self.battery_results
 
-        # Row 0: "no rule" marker baseline
+        # Row 0: "no rule" baseline — all biogas exported at spot price,
+        # no battery, no flex constraints. Matches solbatsys "always" concept.
+        no_rule_exflow = self.data["my_renew"].sum()
+        no_rule_revenue = (self.data["my_renew"] * self.data["price_per_kwh"]).sum()
         marker_baseline = {
             'capacity kWh': -1.0,
             'residual kWh': 0.0,
-            'exflow kWh': 0.0,
+            'exflow kWh': no_rule_exflow,
             'autarky rate': 1.0,
             'spot price [€]': 0.0,
             'fix price [€]': 0.0,
-            'revenue [€]': 0.0
+            'revenue [€]': no_rule_revenue
         }
 
         # Start with marker baseline, then add actual simulation results
@@ -171,50 +187,80 @@ class BioBatSys:
 
         rev1 = self.battery_results["revenue [€]"].iloc[1] if len(self.battery_results) > 1 else 0
 
+        # FCR revenues per simulation (aligned with exporting_l: [0.0MWh, cap1, cap2, ...])
+        # fcr_revenues_l[0] = 0.0 MWh (always 0), [1:] = actual battery sizes
+        fcr_per_sim = self.fcr_revenues_l if self.fcr_revenues_l else [0.0] * len(self.exporting_l)
+        show_fcr = any(r > 0 for r in fcr_per_sim)
+
         # Auto-scale based on data magnitude
         if abs(self.data["my_renew"].sum()) / 1000 > 1000:
             scaler = 1000
-            cols = ["cap MWh", "exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh"]
+            cols = ["cap MWh", "exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh", "cycles"]
+            if show_fcr:
+                cols.append("fcr [T€]")
         else:
             scaler = 1
-            cols = ["cap kWh", "exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh"]
+            cols = ["cap kWh", "exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh", "cycles"]
+            if show_fcr:
+                cols.append("fcr [€]")
 
         # Print export statistics
         if len(self.exporting_l) > 1:
             print(f"exporting {export_hours[1]:.0f} hours but not {self.exporting_l[1][0] * self.resolution:.0f} hours"
                   f" (flex premium applies if export < {min_flex_hours} h)")
+        if show_fcr:
+            fcr_kw = self.basic_data_set.get("fcr_capacity_kw", 0)
+            fcr_price = self.basic_data_set.get("fcr_price_eur_per_kw_year", 0)
+            print(f"FCR: {fcr_kw:.0f} kW reserved @ {fcr_price:.0f} €/kW/year")
 
         # Format results (matches original: skip marker row 0, start from row 1)
         capacity_l = ["no rule"] + [f"{(c / scaler)}" for c in self.battery_results["capacity kWh"][2:]]
 
-        exflowl = [f"{(e / scaler):.1f}" for e in self.battery_results["exflow kWh"][1:]]
+        exflowl = (
+            [f"{(self.battery_results['exflow kWh'].iloc[0] / scaler):.1f}"] +
+            [f"{(e / scaler):.1f}" for e in self.battery_results["exflow kWh"][2:]]
+        )
 
         # Row 1 (0.0 MWh) gets no flex premium, rows 2+ get conditional flex premium
         # flex_per_sim[0] = 0.0 MWh baseline, flex_per_sim[1] = first capacity, etc.
-        val = self.battery_results['revenue [€]'][1] if len(self.battery_results) > 1 else 0
-        revenue_l = [f"{(val / scaler):.1f}"] + [
+        # Row 0 = 'no rule': actual theoretical max (all biogas exported unoptimised)
+        no_rule_rev = self.battery_results['revenue [€]'].iloc[0]
+        revenue_l = [f"{(no_rule_rev / scaler):.1f}"] + [
             f"{((rev + flex) / scaler):.1f}"
             for rev, flex in zip(self.battery_results["revenue [€]"][2:], flex_per_sim[1:])
         ]
 
         revenue_gain = ["nn"] + [
-            f"{((rev - rev1 + flex) / scaler):.2f}"
-            for rev, flex in zip(self.battery_results["revenue [€]"][2:], flex_per_sim[1:])
+            f"{((rev - rev1 + flex + fcr) / scaler):.2f}"
+            for rev, flex, fcr in zip(
+                self.battery_results["revenue [€]"][2:], flex_per_sim[1:], fcr_per_sim[1:]
+            )
         ]
 
-        capacity_costs = [f"{0:.2f}"] + [f"{0:.2f}"] + [
-            f"{((rev - rev1 + flex) / max(1e-10, c)):.2f}"
-            for rev, c, flex in zip(
-                self.battery_results["revenue [€]"][3:],
-                self.battery_results["capacity kWh"][3:],
-                flex_per_sim[2:]
+        capacity_costs = [f"{0:.2f}"] + [
+            f"{((rev - rev1 + flex + fcr) / max(1e-10, c)):.2f}"
+            for rev, c, flex, fcr in zip(
+                self.battery_results["revenue [€]"][2:],
+                self.battery_results["capacity kWh"][2:],
+                flex_per_sim[1:],
+                fcr_per_sim[1:]
             )
         ]
 
         # Export hours per simulation
-        expo_l = [f"{int(eh)}" for eh in export_hours]
+        no_rule_hours = int(len(self.data) * self.resolution)
+        expo_l = [f"{no_rule_hours}"] + [f"{int(eh)}" for eh in export_hours[1:]]
 
-        values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs]).T
+        # Equivalent full cycles: "-" for no_rule, then from analytics (skip 0.0 MWh baseline row)
+        analytics_df = self.analytics.get_results_dataframe()
+        cycles_l = ["-"] + [f"{c:.0f}" for c in analytics_df['equivalent_cycles'][1:]]
+
+        arrays = [capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs, cycles_l]
+        if show_fcr:
+            fcr_l = ["nn"] + [f"{(r / scaler):.1f}" for r in fcr_per_sim[1:]]
+            arrays.append(fcr_l)
+
+        values = np.array(arrays).T
 
         battery_results_norm = pd.DataFrame(values, columns=cols)
 
@@ -237,12 +283,15 @@ basic_data_set = {
     "load_threshold_hytheresis": 0.0,
     "load_threshold": 1.0,
     "control_exflow": 0,
+    "fcr_capacity_kw": 0,
+    "fcr_price_eur_per_kw_year": 0,
 }
 
 
 def main(argv=None):
     """Main function."""
     from smard_utils.utils.cli import create_parser, resolve_data_path
+    from smard_utils.utils.cli import apply_config, resolve_capacity_power
 
     parser = create_parser(
         prog="biobatsys",
@@ -251,7 +300,13 @@ def main(argv=None):
     )
     parser.add_argument("--biogas", type=float, default=None, metavar="KW",
                         help="Biogas nominal power in kW (default: 1000)")
+    parser.add_argument("--fcr-kw", type=float, default=None, metavar="KW",
+                        help="FCR capacity reserved for Regelleistung in kW (default: 0)")
+    parser.add_argument("--fcr-price", type=float, default=None, metavar="EUR_PER_KW_YEAR",
+                        help="FCR capacity price in EUR/kW/year (default: 0)")
     args = parser.parse_args(argv)
+
+    apply_config(basic_data_set, args)
 
     region = f"_{args.region}"
     data_file = resolve_data_path(args)
@@ -262,6 +317,10 @@ def main(argv=None):
     basic_data_set["strategy"] = args.strategy
     if args.biogas is not None:
         basic_data_set["constant_biogas_kw"] = args.biogas
+    if args.fcr_kw is not None:
+        basic_data_set["fcr_capacity_kw"] = args.fcr_kw
+    if args.fcr_price is not None:
+        basic_data_set["fcr_price_eur_per_kw_year"] = args.fcr_price
 
     if not os.path.exists(data_file):
         print(f"Data file not found: {data_file}")
@@ -269,10 +328,10 @@ def main(argv=None):
 
     analyzer = BioBatSys(data_file, region, basic_data_set=basic_data_set)
 
-    analyzer.run_analysis(
-        capacity_list=[1.0, 5, 10, 20, 100],
-        power_list=[0.5, 2.5, 5, 10, 50]
+    capacity_list, power_list = resolve_capacity_power(
+        args, [1.0, 5, 10, 20, 100], [0.5, 2.5, 5, 10, 50]
     )
+    analyzer.run_analysis(capacity_list=capacity_list, power_list=power_list)
 
 
 if __name__ == "__main__":

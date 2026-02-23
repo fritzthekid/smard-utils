@@ -214,8 +214,8 @@ class DayAheadStrategy(BMSStrategy):
         self._maybe_update_plan(context)
 
         action = self._get_planned_action(context['timestamp'])
-        if action != 'charge':
-            return False
+        if action == 'discharge':
+            return False  # Discharging takes priority
 
         max_soc = self.basic_data_set.get("max_soc", 0.95)
         return context['current_storage'] < max_soc * context['capacity']
@@ -285,9 +285,10 @@ class DayAheadStrategy(BMSStrategy):
         """
         min_soc = self.basic_data_set.get("min_soc", 0.05)
 
+        efficiency_discharge = self.basic_data_set.get('efficiency_discharge', 0.96)
         allowed_energy = min(
             context['power_limit'] * context['resolution'],
-            context['current_storage'] - (min_soc * context['capacity'])
+            (context['current_storage'] - min_soc * context['capacity']) * efficiency_discharge
         )
 
         # Modulate discharge based on how far above threshold the price is

@@ -184,14 +184,14 @@ class SmardAnalyseSys:
             cols = [
                 "cap MWh", "resi MWh", "exfl MWh", "autarky",
                 f"spp [T{euro_sign}]", f"fixp [T{euro_sign}]",
-                f"sp {euro_sign}/kWh", f"fp {euro_sign}/kWh"
+                f"sp {euro_sign}/kWh", f"fp {euro_sign}/kWh", "cycles"
             ]
         else:
             scaler = 1
             cols = [
                 "cap kWh", "resi kWh", "exfl kWh", "autarky",
                 f"spp [{euro_sign}]", f"fixp [{euro_sign}]",
-                f"sp {euro_sign}/kWh", f"fp {euro_sign}/kWh"
+                f"sp {euro_sign}/kWh", f"fp {euro_sign}/kWh", "cycles"
             ]
 
         capacity_l = ["no renew", "no bat"] + [
@@ -213,9 +213,13 @@ class SmardAnalyseSys:
             f"{(f / scaler):.1f}" for f in self.battery_results[f"fix price [{euro_sign}]"]
         ]
 
+        # Equivalent full cycles: "-" for no_renew, "0" for no_bat, then from analytics
+        analytics_df = self.analytics.get_results_dataframe()
+        cycles_l = ["-", "0"] + [f"{c:.0f}" for c in analytics_df['equivalent_cycles'][1:]]
+
         values = np.array([
             capacity_l, residual_l, exflowl, autarky_rate_l,
-            spot_price_l, fix_price_l, spotprice_gain, fixprice_gain
+            spot_price_l, fix_price_l, spotprice_gain, fixprice_gain, cycles_l
         ]).T
 
         battery_results_norm = pd.DataFrame(values, columns=cols)
@@ -239,7 +243,7 @@ basic_data_set = {
 
 def main(argv=None):
     """Main function."""
-    from smard_utils.utils.cli import create_parser, resolve_data_path
+    from smard_utils.utils.cli import create_parser, resolve_data_path, apply_config, resolve_capacity_power
 
     parser = create_parser(
         prog="community",
@@ -252,6 +256,8 @@ def main(argv=None):
     parser.add_argument("--wind", type=float, default=None, metavar="KW",
                         help="Wind nominal power in kW (default: 5000)")
     args = parser.parse_args(argv)
+
+    apply_config(basic_data_set, args)
 
     region = f"_{args.region}"
     data_file = resolve_data_path(args)
@@ -271,9 +277,10 @@ def main(argv=None):
 
     analyzer = SmardAnalyseSys(data_file, region, basic_data_set=basic_data_set)
 
-    analyzer.run_analysis(
-        capacity_list=[0.1, 1.0, 5, 10, 20],
-        power_list=[0.05, 0.5, 2.5, 5, 10]
+    capacity_list, power_list = resolve_capacity_power(
+        args, [0.1, 1.0, 5, 10, 20], [0.05, 0.5, 2.5, 5, 10]
+    )
+    analyzer.run_analysis(capacity_list=capacity_list, power_list=power_list
     )
 
 

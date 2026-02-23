@@ -17,6 +17,7 @@
                 </select>
             </div>
 
+            {% if not scenario_info.get('no_strategy') %}
             <div class="form-group">
                 <label for="strategy">Strategie:</label>
                 <select id="strategy" name="strategy">
@@ -25,19 +26,22 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
 
+            {% if not scenario_info.get('no_region') %}
             <div class="form-group">
                 <label for="region">Region:</label>
                 <input type="text" id="region" name="region" value="{{ scenario_info.default_region }}">
             </div>
+            {% endif %}
 
             <div class="form-group">
-                <label for="capacities">Kapazitaeten [MWh]:</label>
+                <label for="capacities">Kapazitaeten [{{ scenario_info.get('capacity_unit', 'MWh') }}]:</label>
                 <input type="text" id="capacities" name="capacities" value="{{ scenario_info.default_capacities }}">
             </div>
 
             <div class="form-group">
-                <label for="powers">Leistungen [MW]:</label>
+                <label for="powers">Leistungen [{{ scenario_info.get('power_unit', 'MW') }}]:</label>
                 <input type="text" id="powers" name="powers" value="{{ scenario_info.default_powers }}">
             </div>
 
@@ -52,7 +56,13 @@
             {% endif %}
 
             <div class="form-group">
-                <label for="datafile">Eigene SMARD-Daten (CSV):</label>
+                <label for="configfile">Konfiguration (JSON):</label>
+                <input type="file" id="configfile" name="configfile" accept=".json,.conf">
+            </div>
+            <input type="hidden" id="config_file" name="config_file" value="">
+
+            <div class="form-group">
+                <label for="datafile">{% if scenario_info.get('no_region') %}Haushaltsdaten (CSV):{% else %}Eigene SMARD-Daten (CSV):{% endif %}</label>
                 <input type="file" id="datafile" name="datafile" accept=".csv">
             </div>
             <input type="hidden" id="uploaded_file" name="uploaded_file" value="">

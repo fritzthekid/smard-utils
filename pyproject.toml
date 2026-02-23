@@ -41,6 +41,8 @@ community = "smard_utils.community:main"
 biobatsys = "smard_utils.biobatsys:main"
 solbatsys = "smard_utils.solbatsys:main"
 senec = "smard_utils.senec_analyes:main"
+senec2smardformat = "smard_utils.senec2smard:main"
+homebatsys = "smard_utils.homebatsys:main"
 
 [tool.setuptools]
 packages = {find = {}}

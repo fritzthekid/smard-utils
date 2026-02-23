@@ -120,6 +120,10 @@ class BatteryAnalytics:
         # Export time
         export_hours = bms.export_flags.sum() * self.driver.resolution
 
+        # Equivalent full cycles = total energy discharged / nominal capacity
+        total_discharge = df['net_discharge'].sum()
+        equivalent_cycles = total_discharge / capacity if capacity > 0 else 0.0
+
         result = {
             'capacity_kwh': capacity,
             'power_kw': power,
@@ -131,6 +135,8 @@ class BatteryAnalytics:
             'fix_cost_eur': fix_cost,
             'revenue_eur': revenue,
             'export_hours': export_hours,
+            'total_discharge_kwh': total_discharge,
+            'equivalent_cycles': equivalent_cycles,
             'net_profit_spot': revenue - spot_cost,
             'net_profit_fix': revenue - fix_cost
         }

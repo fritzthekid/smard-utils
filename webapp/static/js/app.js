@@ -40,6 +40,42 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // --- Config file upload handler ---
+    const configInput = document.getElementById('configfile');
+    if (configInput) {
+        configInput.addEventListener('change', function () {
+            if (!this.files.length) return;
+
+            const formData = new FormData();
+            formData.append('command', 'upload');
+            formData.append('datafile', this.files[0]);
+
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.textContent = 'Config hochladen...';
+
+            fetch('.', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    document.getElementById('config_file').value = data.filename;
+                    statusDiv.textContent = `Config: ${data.filename} (${data.size_kb} KB)`;
+                    statusDiv.style.color = '#2c5f2d';
+                } else {
+                    statusDiv.textContent = `Config-Fehler: ${data.message}`;
+                    statusDiv.style.color = '#c62828';
+                    document.getElementById('config_file').value = '';
+                }
+            })
+            .catch(err => {
+                statusDiv.textContent = `Config-Upload fehlgeschlagen: ${err}`;
+                statusDiv.style.color = '#c62828';
+            });
+        });
+    }
+
     // --- Analysis form handler ---
     const analysisForm = document.getElementById('analysis-form');
     if (analysisForm) {

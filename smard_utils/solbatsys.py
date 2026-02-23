@@ -148,10 +148,10 @@ class SolBatSys:
         # Auto-scale
         if abs(self.data["my_renew"].sum()) / 1000 > 1000:
             scaler = 1000
-            cols = ["cap MWh", "exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh"]
+            cols = ["cap MWh", "exfl MWh", "export [h]", "rev [T€]", "revadd [T€]", "rev €/kWh", "cycles"]
         else:
             scaler = 1
-            cols = ["cap kWh", "exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh"]
+            cols = ["cap kWh", "exfl kWh", "export [h]", "rev [€]", "revadd [€]", "rev €/kWh", "cycles"]
 
         # Format results (include row 1 which is the no-battery baseline)
         capacity_l = ["always"] + [f"{(c / scaler)}" for c in self.battery_results["capacity kWh"][1:]]
@@ -176,7 +176,11 @@ class SolBatSys:
         # expo_l: "always" baseline + actual simulation export times (including 0.0 MWh)
         expo_l = [f"{int(texp0)}"] + [f"{int(e[1] * self.resolution)}" for e in self.exporting_l]
 
-        values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs]).T
+        # Equivalent full cycles: "-" for always baseline, then from analytics
+        analytics_df = self.analytics.get_results_dataframe()
+        cycles_l = ["-"] + [f"{c:.0f}" for c in analytics_df['equivalent_cycles']]
+
+        values = np.array([capacity_l, exflowl, expo_l, revenue_l, revenue_gain, capacity_costs, cycles_l]).T
 
         battery_results_norm = pd.DataFrame(values, columns=cols)
 
@@ -200,7 +204,7 @@ basic_data_set = {
 
 def main(argv=None):
     """Main function."""
-    from smard_utils.utils.cli import create_parser, resolve_data_path
+    from smard_utils.utils.cli import create_parser, resolve_data_path, apply_config, resolve_capacity_power
 
     parser = create_parser(
         prog="solbatsys",
@@ -210,6 +214,8 @@ def main(argv=None):
     parser.add_argument("--solar", type=float, default=None, metavar="KWP",
                         help="Solar peak power in kWp (default: 10000)")
     args = parser.parse_args(argv)
+
+    apply_config(basic_data_set, args)
 
     region = f"_{args.region}"
     data_file = resolve_data_path(args)
@@ -227,9 +233,10 @@ def main(argv=None):
 
     analyzer = SolBatSys(data_file, region, basic_data_set=basic_data_set)
 
-    analyzer.run_analysis(
-        capacity_list=[1.0, 5, 10, 20, 50, 70],
-        power_list=[0.5, 2.5, 5, 10, 25, 35]
+    capacity_list, power_list = resolve_capacity_power(
+        args, [1.0, 5, 10, 20, 50, 70], [0.5, 2.5, 5, 10, 25, 35]
+    )
+    analyzer.run_analysis(capacity_list=capacity_list, power_list=power_list
     )
 
 

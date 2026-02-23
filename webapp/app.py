@@ -32,6 +32,8 @@ from smard_utils.solbatsys import SolBatSys
 from smard_utils.solbatsys import basic_data_set as solar_defaults
 from smard_utils.community import SmardAnalyseSys
 from smard_utils.community import basic_data_set as community_defaults
+from smard_utils.homebatsys import HomeBatSys
+from smard_utils.homebatsys import basic_data_set as home_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 CORS(app)
 
-ALLOWED_EXTENSIONS = {'csv'}
+ALLOWED_EXTENSIONS = {'csv', 'json', 'conf'}
 SESSION_DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_data.json')
 
 SCENARIOS = {
@@ -88,6 +90,23 @@ SCENARIOS = {
         'capacity_params': [
             {'key': 'solar_max_power', 'label': 'Solar Peak [kWp]', 'default': 5000},
             {'key': 'wind_nominal_power', 'label': 'Wind Nenn [kW]', 'default': 5000},
+        ],
+    },
+    'home': {
+        'name': 'Heimspeicher (HomeBatSys)',
+        'class': HomeBatSys,
+        'defaults': home_defaults,
+        'default_strategy': '',
+        'default_capacities': '5, 10, 15, 20',
+        'default_powers': '3.5, 7.0, 8.5, 10.0',
+        'default_region': '',
+        'capacity_unit': 'kWh',
+        'power_unit': 'kW',
+        'no_strategy': True,
+        'no_region': True,
+        'capacity_params': [
+            {'key': 'fix_price', 'label': 'Strompreis [\u20ac/kWh]', 'default': 0.28},
+            {'key': 'feed_in_price', 'label': 'Einspeisung [\u20ac/kWh]', 'default': 0.0},
         ],
     },
 }
@@ -262,6 +281,16 @@ def run_analysis():
 
         # Build configuration
         basic_data_set = sc['defaults'].copy()
+
+        # Apply config file overrides (before CLI-style params so params win)
+        config_filename = request.form.get('config_file', '').strip()
+        if config_filename:
+            config_path = os.path.join(sessiondir(), config_filename)
+            if os.path.exists(config_path):
+                with open(config_path) as f:
+                    overrides = json.load(f)
+                basic_data_set.update(overrides)
+
         basic_data_set['strategy'] = strategy
 
         # Apply optional capacity params (solar/wind/biogas)
@@ -275,7 +304,10 @@ def run_analysis():
 
         # Create analyzer and run
         region_code = f"_{region}"
-        analyzer = sc['class'](data_file, region_code, basic_data_set=basic_data_set)
+        if scenario == 'home':
+            analyzer = HomeBatSys(data_file, basic_data_set=basic_data_set)
+        else:
+            analyzer = sc['class'](data_file, region_code, basic_data_set=basic_data_set)
 
         # Capture stdout output (the print_battery_results output)
         stdout_capture = io.StringIO()
@@ -287,13 +319,17 @@ def run_analysis():
 
         table_text = stdout_capture.getvalue()
 
-        # Generate chart
-        chart_filename = generate_chart(analyzer, scenario, sessiondir())
-
-        # Save results CSV
-        if analyzer.battery_results is not None:
-            csv_path = os.path.join(sessiondir(), 'results.csv')
-            analyzer.battery_results.to_csv(csv_path, index=False)
+        # Generate chart and save CSV
+        if scenario == 'home':
+            chart_filename = generate_home_chart(analyzer, sessiondir())
+            if analyzer.results_df is not None:
+                csv_path = os.path.join(sessiondir(), 'results.csv')
+                analyzer.results_df.to_csv(csv_path, index=False)
+        else:
+            chart_filename = generate_chart(analyzer, scenario, sessiondir())
+            if analyzer.battery_results is not None:
+                csv_path = os.path.join(sessiondir(), 'results.csv')
+                analyzer.battery_results.to_csv(csv_path, index=False)
 
         session['output_file'] = chart_filename
 
@@ -379,6 +415,54 @@ def generate_chart(analyzer, scenario, output_dir):
     plt.savefig(chart_path, format='svg', bbox_inches='tight')
     plt.close(fig)
 
+    return 'results.svg'
+
+
+def generate_home_chart(analyzer, output_dir):
+    """Generate chart for home storage autarky results."""
+    df = analyzer.results_df
+    if df is None or len(df) < 2:
+        return None
+
+    plot_df = df.iloc[1:]  # skip no-battery baseline (row 0)
+    caps = plot_df['capacity_kwh'].values
+    grid = plot_df['grid_import_kwh'].values
+    autarky = plot_df['autarky'].values * 100
+    savings = plot_df['savings_eur'].values
+
+    x = np.arange(len(caps))
+    base_grid = df['grid_import_kwh'].iloc[0]
+    base_autarky = df['autarky'].iloc[0] * 100
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Chart 1: grid import per capacity
+    ax1.bar(x, grid, color='#e67e22', alpha=0.8, edgecolor='#d35400')
+    ax1.axhline(base_grid, color='#c0392b', linestyle='--', linewidth=1.2, label='kein Speicher')
+    ax1.set_xlabel('Kapazität [kWh]')
+    ax1.set_ylabel('Netzbezug [kWh/a]')
+    ax1.set_title('Netzbezug nach Kapazität')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([f'{c:.0f}' for c in caps], rotation=45)
+    ax1.legend()
+    ax1.grid(axis='y', alpha=0.3)
+
+    # Chart 2: autarky rate per capacity
+    ax2.bar(x, autarky, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
+    ax2.axhline(base_autarky, color='#c0392b', linestyle='--', linewidth=1.2, label='kein Speicher')
+    ax2.set_xlabel('Kapazität [kWh]')
+    ax2.set_ylabel('Autarkiegrad [%]')
+    ax2.set_title('Autarkiegrad nach Kapazität')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels([f'{c:.0f}' for c in caps], rotation=45)
+    ax2.set_ylim(0, 100)
+    ax2.legend()
+    ax2.grid(axis='y', alpha=0.3)
+
+    plt.tight_layout()
+    chart_path = os.path.join(output_dir, 'results.svg')
+    plt.savefig(chart_path, format='svg', bbox_inches='tight')
+    plt.close(fig)
     return 'results.svg'
 
 

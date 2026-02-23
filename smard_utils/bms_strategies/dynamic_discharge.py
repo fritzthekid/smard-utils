@@ -220,9 +220,10 @@ class DynamicDischargeStrategy(BMSStrategy):
         df_min = 0.7      # Minimum threshold
         sub = 0.0         # No substitute
 
+        efficiency_discharge = self.basic_data_set.get('efficiency_discharge', 0.96)
         allowed_energy = min(
             context['power_limit'] * context['resolution'],
-            context['current_storage'] - (min_soc * context['capacity'])
+            (context['current_storage'] - min_soc * context['capacity']) * efficiency_discharge
         )
 
         # Apply saturation curve to modulate discharge
