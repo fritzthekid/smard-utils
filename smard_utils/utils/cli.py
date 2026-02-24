@@ -14,7 +14,8 @@ root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/../.."
 
 
 def create_parser(prog: str, description: str, default_strategy: str,
-                  default_region: str = "de") -> argparse.ArgumentParser:
+                  default_region: str = "de",
+                  extra_strategies: list = None) -> argparse.ArgumentParser:
     """
     Create argument parser with common options.
 
@@ -43,9 +44,10 @@ examples:
   {prog} -s day_ahead -r de
 """)
 
+    strategies = STRATEGIES + (extra_strategies or [])
     parser.add_argument(
         "-s", "--strategy",
-        choices=STRATEGIES,
+        choices=strategies,
         default=default_strategy,
         help=f"BMS strategy (default: {default_strategy})"
     )

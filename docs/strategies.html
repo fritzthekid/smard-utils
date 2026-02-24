@@ -159,14 +159,15 @@ Idle:       sonst</pre>
       <tr><td><code>efficiency_discharge</code></td><td>0,96</td><td>Entlade-Wirkungsgrad</td></tr>
     </table>
     <div class="info-box">
-      <strong>Wichtig:</strong> Die Autarky-Strategie verwendet <em>keine Spotpreise</em>.
-      Stattdessen arbeitet sie rein physisch: Solarer Überschuss wird gespeichert,
+      <strong>Hinweis:</strong> Die Autarky-Strategie verwendet <em>keine Spotpreise</em>.
+      Stattdessen arbeitet sie rein physisch: Überschuss aus Erneuerbaren wird gespeichert,
       Versorgungsdefizit wird aus dem Speicher gedeckt.
-      Sie ist daher <strong>nur für homebatsys</strong> sinnvoll – biobatsys, solbatsys
-      und community arbeiten mit einer anderen Vorzeichenkonvention.
+      Sie funktioniert für alle Szenarien mit der Vorzeichenkonvention
+      <em>demand &gt; 0</em> – also <strong>homebatsys</strong> und <strong>community</strong>.
+      Für biobatsys und solbatsys (<em>demand &lt; 0</em>) ist sie nicht geeignet.
     </div>
-    <p><strong>Geeignet für:</strong> Haushaltsspeicher, PV-Eigenstromnutzung,
-    Autarkieoptimierung mit Fixstromtarif.</p>
+    <p><strong>Geeignet für:</strong> Haushaltsspeicher, Quartiersspeicher,
+    PV-Eigenstromnutzung, Autarkieoptimierung mit Fixstromtarif.</p>
 
     <h2 id="sec-vergleich">Wann welche Strategie?</h2>
     <table>
@@ -196,9 +197,9 @@ Idle:       sonst</pre>
       </tr>
       <tr>
         <td><code>autarky</code></td>
-        <td>homebatsys</td>
+        <td>homebatsys, community</td>
         <td>Rein physisch, kein Spotpreis nötig</td>
-        <td>Nur für Haushaltsspeicher sinnvoll</td>
+        <td>Nur für Fixpreis-Szenarien sinnvoll (demand &gt; 0)</td>
       </tr>
     </table>
     <p>
@@ -213,7 +214,9 @@ solbatsys   -s day_ahead
 
 community   -s dynamic_discharge   # Standard
 community   -s day_ahead</pre>
-    <p>Autarky-Strategie (homebatsys):</p>
-    <pre>homebatsys  -d 2024-home.csv -s autarky   # Standard (einzige Option)</pre>
+    <p>Autarky-Strategie (homebatsys, community):</p>
+    <pre>homebatsys  -d 2024-home.csv -s autarky   # Standard (einzige Option)
+
+community   -s autarky                    # Fixpreis-Autarkie statt Spotmarkt</pre>
   </article>
 </section>

@@ -170,6 +170,21 @@ def index():
                 return render_template('login.html')
             scenario = request.args.get('scenario', 'biogas')
             return show_analysis(scenario)
+        if command == 'solbatsys':
+            if not is_authenticated():
+                return render_template('login.html')
+            scenario = request.args.get('scenario', 'solbatsys')
+            return show_analysis(scenario)
+        if command == 'community':
+            if not is_authenticated():
+                return render_template('login.html')
+            scenario = request.args.get('scenario', 'community')
+            return show_analysis(scenario)
+        if command == 'homebatsys':
+            if not is_authenticated():
+                return render_template('login.html')
+            scenario = request.args.get('scenario', 'homebatsys')
+            return show_analysis(scenario)
         return render_template('index.html', authenticated=is_authenticated())
 
     # POST handling
@@ -361,6 +376,8 @@ def generate_chart(analyzer, scenario, output_dir):
     # Skip marker row (index 0) and no-battery baseline (index 1)
     plot_df = df.iloc[2:].copy() if len(df) > 2 else df.iloc[1:].copy()
 
+    fp_col = f'fix price [\u20ac]'
+
     if cap_col in plot_df.columns and rev_col in plot_df.columns:
         capacities = plot_df[cap_col].values / 1000  # kWh -> MWh
         revenues = plot_df[rev_col].values
@@ -372,13 +389,24 @@ def generate_chart(analyzer, scenario, output_dir):
         baseline_sp = df[sp_col].iloc[1] if has_spot and len(df) > 1 else None
         spot_costs = plot_df[sp_col].values if has_spot else None
 
+        has_fix = fp_col in df.columns and fp_col in plot_df.columns
+        baseline_fp = df[fp_col].iloc[1] if has_fix and len(df) > 1 else None
+        fix_costs = plot_df[fp_col].values if has_fix else None
+
+        fix_contract = getattr(analyzer, 'basic_data_set', {}).get('fix_contract', False)
+
         # --- Chart 1 ---
-        # Community: show import spot-costs (decreasing = good).
+        # Community: show import costs (fix price if fix_contract, else spot).
         # Solar/biogas: show export revenue (increasing = good).
-        if has_spot and scenario == 'community':
-            ax1.bar(x, spot_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
-            ax1.set_ylabel('Spot Cost [T\u20ac]')
-            ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost by Capacity')
+        if scenario == 'community':
+            if fix_contract and has_fix:
+                ax1.bar(x, fix_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
+                ax1.set_ylabel('Fix Cost [T\u20ac]')
+                ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost (fix price)')
+            elif has_spot:
+                ax1.bar(x, spot_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
+                ax1.set_ylabel('Spot Cost [T\u20ac]')
+                ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost (spot price)')
         else:
             ax1.bar(x, revenues / 1000, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
             ax1.set_ylabel('Revenue [T\u20ac]')
@@ -389,15 +417,25 @@ def generate_chart(analyzer, scenario, output_dir):
         ax1.grid(axis='y', alpha=0.3)
 
         # --- Chart 2: Net benefit per kWh ---
-        # Net benefit = revenue_gain + spot_cost_savings
-        # For solar/biogas (spot_cost ≈ 0): net_benefit ≈ revenue_gain (unchanged).
-        # For community: includes import-cost reduction that revenue alone misses.
+        # Community: import-cost savings per kWh capacity (matches printed sp/fp €/kWh).
+        #   Use fix-price savings when fix_contract, else spot-price savings.
+        #   revenue_gain is NOT added: with autarky the battery reduces exports (negative
+        #   revenue_gain) which would cancel out the import savings and give wrong sign.
+        # Solar/biogas: revenue gain per kWh (they are sellers, spot_savings ≈ 0).
         net_per_kwh = []
         for i, (cap_kwh, rev) in enumerate(zip(plot_df[cap_col].values, revenues)):
             if cap_kwh > 0:
-                revenue_gain = rev - baseline_rev
-                spot_savings = (baseline_sp - spot_costs[i]) if has_spot and baseline_sp is not None else 0
-                net_per_kwh.append((revenue_gain + spot_savings) / cap_kwh)
+                if scenario == 'community':
+                    if fix_contract and has_fix and baseline_fp is not None:
+                        net_per_kwh.append((baseline_fp - fix_costs[i]) / cap_kwh)
+                    elif has_spot and baseline_sp is not None:
+                        net_per_kwh.append((baseline_sp - spot_costs[i]) / cap_kwh)
+                    else:
+                        net_per_kwh.append(0)
+                else:
+                    revenue_gain = rev - baseline_rev
+                    spot_savings = (baseline_sp - spot_costs[i]) if has_spot and baseline_sp is not None else 0
+                    net_per_kwh.append((revenue_gain + spot_savings) / cap_kwh)
             else:
                 net_per_kwh.append(0)
 
@@ -405,8 +443,15 @@ def generate_chart(analyzer, scenario, output_dir):
         ax2.bar(x, net_per_kwh, color=bar_colors, alpha=0.8, edgecolor='#2980b9')
         ax2.axhline(y=0, color='black', linewidth=0.8)
         ax2.set_xlabel('Battery Capacity [MWh]')
-        ax2.set_ylabel('Net Benefit [\u20ac/kWh]')
-        ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Net Benefit per kWh')
+        if scenario == 'community' and fix_contract:
+            ax2.set_ylabel('Fix-Price Savings [\u20ac/kWh]')
+            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Savings per kWh (fix price)')
+        elif scenario == 'community':
+            ax2.set_ylabel('Spot-Price Savings [\u20ac/kWh]')
+            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Savings per kWh (spot price)')
+        else:
+            ax2.set_ylabel('Net Benefit [\u20ac/kWh]')
+            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Net Benefit per kWh')
         ax2.set_xticks(x)
         ax2.set_xticklabels([f'{c:.1f}' for c in capacities], rotation=45)
         ax2.grid(axis='y', alpha=0.3)

@@ -21,11 +21,17 @@
                 <button name="command" value="analysis" type="submit"
                     onclick="this.form.action='.?command=analysis&scenario=biogas'">Biogas</button>
             </form>
-            <form method="GET" action=".?command=analysis&scenario=solar">
-                <button type="submit">Solar</button>
+            <form method="GET" action=".">
+                <button name="command" value="solbatsys" type="submit"
+                    onclick="this.form.action='.?command=analysis&scenario=solbatsys'">Solar</button>
             </form>
-            <form method="GET" action=".?command=analysis&scenario=community">
-                <button type="submit">Community</button>
+            <form method="GET" action=".">
+                <button name="command" value="community" type="submit"
+                    onclick="this.form.action='.?command=analysis&scenario=community'">Community</button>
+            </form>
+            <form method="GET" action=".">
+                <button name="command" value="homebatsys" type="submit"
+                    onclick="this.form.action='.?command=analysis&scenario=homebatsys'">Heimspeicher</button>
             </form>
         </div>
       </div>

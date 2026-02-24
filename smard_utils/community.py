@@ -20,6 +20,7 @@ from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.community_driver import CommunityDriver
 from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
 from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
+from smard_utils.bms_strategies.autarky import AutoarkyStrategy
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ class SmardAnalyseSys:
         strategy_name = basic_data_set.get("strategy", "dynamic_discharge")
         if strategy_name == "day_ahead":
             self.strategy = DayAheadStrategy(basic_data_set)
+        elif strategy_name == "autarky":
+            self.strategy = AutoarkyStrategy(basic_data_set)
         else:
             self.strategy = DynamicDischargeStrategy(basic_data_set)
 
@@ -257,6 +260,7 @@ def main(argv=None):
         description="Community energy analysis (solar + wind + demand)",
         default_strategy="dynamic_discharge",
         default_region="lu",
+        extra_strategies=["autarky"],
     )
     parser.add_argument("--solar", type=float, default=None, metavar="KWP",
                         help="Solar peak power in kWp (default: 5000)")
