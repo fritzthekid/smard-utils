@@ -4,11 +4,14 @@ BioBatSys - Biogas battery system analysis (Refactored).
 Uses new modular architecture with backward-compatible interface.
 """
 
-import pandas as pd
-import numpy as np
 import os
 import sys
 import logging
+import types
+from concurrent.futures import ProcessPoolExecutor
+
+import pandas as pd
+import numpy as np
 
 from smard_utils.core.driver import EnergyDriver
 from smard_utils.core.battery import Battery
@@ -62,10 +65,36 @@ class BioBatSys:
         self.resolution = self.driver.resolution
         self.data = self.driver.data
 
+    def _run_one(self, capacity_mwh: float, power_mw: float) -> dict:
+        """Run a single battery simulation and return raw results."""
+        power_kw = power_mw * 1000
+        fcr_capacity_kw = self.basic_data_set.get("fcr_capacity_kw", 0)
+        fcr_kw = min(fcr_capacity_kw, power_kw)
+        arbitrage_power_kw = power_kw - fcr_kw
+
+        battery = Battery(self.basic_data_set, capacity_mwh * 1000, arbitrage_power_kw)
+        bms = BatteryManagementSystem(self.strategy, battery, self.driver)
+        bms.initialize()
+
+        step_results = []
+        for i in range(len(self.driver)):
+            price = self.driver.data['price_per_kwh'].iloc[i]
+            avg_price = self.driver.data['avrgprice'].iloc[i]
+            step_results.append(bms.step(i, price, avg_price))
+
+        return {
+            'capacity_mwh': capacity_mwh,
+            'power_mw': power_mw,
+            'power_kw': power_kw,
+            'fcr_kw': fcr_kw,
+            'step_results': step_results,
+            'export_flags': bms.export_flags.copy(),
+        }
+
     def run_analysis(self, capacity_list=[1.0, 5, 10, 20, 100],
                      power_list=[0.5, 2.5, 5, 10, 50]):
         """
-        Run battery analysis for multiple capacities.
+        Run battery analysis for multiple capacities (parallel across cores).
 
         Args:
             capacity_list: List of battery capacities (MWh)
@@ -73,53 +102,29 @@ class BioBatSys:
         """
         print("\nStarting biogas battery analysis...")
 
-        # FCR (Regelleistung) parameters
-        fcr_capacity_kw = self.basic_data_set.get("fcr_capacity_kw", 0)
         fcr_price = self.basic_data_set.get("fcr_price_eur_per_kw_year", 0)
 
-        # Run simulations (including 0.0 MWh for no-battery baseline)
         full_capacity_list = [0.0] + list(capacity_list)
         full_power_list = [0.0] + list(power_list)
 
-        for capacity, power in zip(full_capacity_list, full_power_list):
-            power_kw = power * 1000
-            # Reserve FCR capacity from arbitrage power (cannot exceed battery power)
-            fcr_kw = min(fcr_capacity_kw, power_kw)
-            arbitrage_power_kw = power_kw - fcr_kw
+        n = len(full_capacity_list)
+        max_workers = min(n, os.cpu_count() or 1)
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            run_outputs = list(executor.map(self._run_one, full_capacity_list, full_power_list))
 
-            battery = Battery(self.basic_data_set, capacity * 1000, arbitrage_power_kw)
-            bms = BatteryManagementSystem(self.strategy, battery, self.driver)
-            bms.initialize()
-
-            # Simulation loop
-            results = []
-            for i in range(len(self.driver)):
-                price = self.driver.data['price_per_kwh'].iloc[i]
-                avg_price = self.driver.data['avrgprice'].iloc[i]
-                step_result = bms.step(i, price, avg_price)
-                results.append(step_result)
-
-            # Record results
-            result_dict = self.analytics.add_simulation_result(
-                capacity * 1000, power_kw, bms, results
+        for output in run_outputs:
+            proxy = types.SimpleNamespace(export_flags=output['export_flags'])
+            self.analytics.add_simulation_result(
+                output['capacity_mwh'] * 1000, output['power_kw'], proxy, output['step_results']
             )
-
-            # Track export flags for print method
             self.exporting_l.append((
-                np.size(bms.export_flags) - np.count_nonzero(bms.export_flags),
-                bms.export_flags.sum()
+                np.size(output['export_flags']) - np.count_nonzero(output['export_flags']),
+                output['export_flags'].sum()
             ))
+            self.fcr_revenues_l.append(output['fcr_kw'] * fcr_price)
 
-            # FCR annual revenue for this battery size
-            self.fcr_revenues_l.append(fcr_kw * fcr_price)
-
-        # Get results DataFrame (standard format)
         self.battery_results = self.analytics.get_results_dataframe()
-
-        # Convert to legacy format for backward compatibility
         self._convert_to_legacy_format()
-
-        # Print custom biogas results
         self.print_battery_results()
 
     def _convert_to_legacy_format(self):

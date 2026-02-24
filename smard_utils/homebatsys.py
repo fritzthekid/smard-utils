@@ -23,6 +23,7 @@ cycles      Equivalent full discharge cycles per year.
 
 import argparse
 import os
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -122,9 +123,10 @@ class HomeBatSys:
         full_cap = [0.0] + list(capacity_list)
         full_pwr = [0.0] + list(power_list)
 
-        results = []
-        for cap, pwr in zip(full_cap, full_pwr):
-            results.append(self._run_one(cap, pwr))
+        n = len(full_cap)
+        max_workers = min(n, os.cpu_count() or 1)
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(self._run_one, full_cap, full_pwr))
 
         # Store results for webapp / programmatic access
         _fix = self.basic_data_set.get('fix_price', 0.28)

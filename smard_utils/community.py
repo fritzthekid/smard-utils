@@ -5,11 +5,14 @@ Uses new modular architecture with backward-compatible interface.
 Analyzes a small community with solar + wind + demand.
 """
 
-import pandas as pd
-import numpy as np
 import os
 import sys
 import logging
+import types
+from concurrent.futures import ProcessPoolExecutor
+
+import pandas as pd
+import numpy as np
 
 from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
@@ -61,10 +64,29 @@ class SmardAnalyseSys:
         self.resolution = self.driver.resolution
         self.data = self.driver.data
 
+    def _run_one(self, capacity_mwh: float, power_mw: float) -> dict:
+        """Run a single battery simulation and return raw results."""
+        battery = Battery(self.basic_data_set, capacity_mwh * 1000, power_mw * 1000)
+        bms = BatteryManagementSystem(self.strategy, battery, self.driver)
+        bms.initialize()
+
+        step_results = []
+        for i in range(len(self.driver)):
+            price = self.driver.data['price_per_kwh'].iloc[i]
+            avg_price = self.driver.data['avrgprice'].iloc[i]
+            step_results.append(bms.step(i, price, avg_price))
+
+        return {
+            'capacity_mwh': capacity_mwh,
+            'power_mw': power_mw,
+            'step_results': step_results,
+            'export_flags': bms.export_flags.copy(),
+        }
+
     def run_analysis(self, capacity_list=[0.1, 1.0, 5, 10, 20],
                      power_list=[0.05, 0.5, 2.5, 5, 10]):
         """
-        Run battery analysis for multiple capacities.
+        Run battery analysis for multiple capacities (parallel across cores).
 
         Args:
             capacity_list: List of battery capacities (MWh)
@@ -75,41 +97,26 @@ class SmardAnalyseSys:
         if len(capacity_list) != len(power_list):
             raise ValueError("capacity_list and power_list must have the same length")
 
-        # Run simulations (including 0.0 MWh for no-battery baseline)
         full_capacity_list = [0.0] + list(capacity_list)
         full_power_list = [0.0] + list(power_list)
 
-        for capacity, power in zip(full_capacity_list, full_power_list):
-            battery = Battery(self.basic_data_set, capacity * 1000, power * 1000)
-            bms = BatteryManagementSystem(self.strategy, battery, self.driver)
-            bms.initialize()
+        n = len(full_capacity_list)
+        max_workers = min(n, os.cpu_count() or 1)
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            run_outputs = list(executor.map(self._run_one, full_capacity_list, full_power_list))
 
-            # Simulation loop
-            results = []
-            for i in range(len(self.driver)):
-                price = self.driver.data['price_per_kwh'].iloc[i]
-                avg_price = self.driver.data['avrgprice'].iloc[i]
-                step_result = bms.step(i, price, avg_price)
-                results.append(step_result)
-
-            # Record results
+        for output in run_outputs:
+            proxy = types.SimpleNamespace(export_flags=output['export_flags'])
             self.analytics.add_simulation_result(
-                capacity * 1000, power * 1000, bms, results
+                output['capacity_mwh'] * 1000, output['power_mw'] * 1000, proxy, output['step_results']
             )
-
-            # Track export flags
             self.exporting_l.append((
-                np.size(bms.export_flags) - np.count_nonzero(bms.export_flags),
-                bms.export_flags.sum()
+                np.size(output['export_flags']) - np.count_nonzero(output['export_flags']),
+                output['export_flags'].sum()
             ))
 
-        # Get results
         self.battery_results = self.analytics.get_results_dataframe()
-
-        # Convert to legacy format
         self._convert_to_legacy_format()
-
-        # Print results
         self.print_results()
         self.print_battery_results()
 
