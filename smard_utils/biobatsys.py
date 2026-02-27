@@ -66,7 +66,31 @@ class BioBatSys:
         self.data = self.driver.data
 
     def _run_one(self, capacity_mwh: float, power_mw: float) -> dict:
-        """Run a single battery simulation and return raw results."""
+        """
+        Run a single battery simulation and return raw per-timestep results.
+
+        If fcr_capacity_kw is set in config, that portion of the battery power is
+        reserved for FCR (Frequency Containment Reserve / Regelleistung) and is not
+        available for spot-market arbitrage:
+
+            arbitrage_power_kw = power_kw - fcr_kw
+
+        FCR revenue is calculated separately in run_analysis() as:
+            fcr_kw * fcr_price_eur_per_kw_year
+
+        Args:
+            capacity_mwh: Battery capacity in MWh
+            power_mw:     Battery charge/discharge power in MW
+
+        Returns:
+            Dict with keys:
+                capacity_mwh  - Echo of input capacity
+                power_mw      - Echo of input power
+                power_kw      - power_mw converted to kW
+                fcr_kw        - Power reserved for FCR (capped at power_kw)
+                step_results  - List of per-timestep dicts from bms.step()
+                export_flags  - Boolean array, True where energy was exported
+        """
         power_kw = power_mw * 1000
         fcr_capacity_kw = self.basic_data_set.get("fcr_capacity_kw", 0)
         fcr_kw = min(fcr_capacity_kw, power_kw)

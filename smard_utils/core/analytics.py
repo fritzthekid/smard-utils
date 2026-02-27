@@ -96,7 +96,21 @@ class BatteryAnalytics:
             step_results: List of dicts from bms.step()
 
         Returns:
-            Dict with calculated metrics
+            Dict with calculated metrics:
+                capacity_kwh      - Echo of input capacity
+                power_kw          - Echo of input power
+                residual_kwh      - Total unmet demand (= grid imports)
+                export_kwh        - Total energy exported to grid
+                loss_kwh          - Total I2R + efficiency losses
+                autarky_rate      - 1 - residual / total_demand  [0..1]
+                spot_cost_eur     - sum(residual[t] * spot_price[t])
+                fix_cost_eur      - residual_kwh * fix_costs_per_kwh
+                revenue_eur       - sum(export[t] * (price[t] - marketing_costs))
+                export_hours      - Hours with non-zero export
+                total_discharge_kwh - Cumulative energy discharged from battery
+                equivalent_cycles - total_discharge / capacity  (full cycles/year)
+                net_profit_spot   - revenue - spot_cost
+                net_profit_fix    - revenue - fix_cost
         """
         df = pd.DataFrame(step_results)
 

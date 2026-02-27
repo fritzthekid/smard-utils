@@ -24,6 +24,10 @@ def create_parser(prog: str, description: str, default_strategy: str,
         description: Short description for --help
         default_strategy: Default strategy name
         default_region: Default region code (without underscore)
+        extra_strategies: Additional strategy names to add to the choices list
+            beyond the shared STRATEGIES (price_threshold, dynamic_discharge,
+            day_ahead). Useful when a specific application supports additional
+            strategies (e.g. community passes ["autarky"]).
 
     Returns:
         Configured ArgumentParser

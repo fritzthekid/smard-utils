@@ -67,7 +67,23 @@ class HomeBatSys:
     # ------------------------------------------------------------------
 
     def _run_one(self, capacity_kwh: float, power_kw: float) -> dict:
-        """Run a single battery simulation and return summary metrics."""
+        """
+        Run a single autarky simulation and return annual summary metrics.
+
+        Args:
+            capacity_kwh: Battery capacity in kWh (0.0 = no-battery baseline)
+            power_kw:     Max charge/discharge power in kW
+
+        Returns:
+            Dict with keys:
+                capacity_kwh    - Echo of input capacity
+                power_kw        - Echo of input power
+                grid_import_kwh - Annual grid imports (unmet demand after solar + battery)
+                export_kwh      - Annual energy exported to grid (unused surplus)
+                autarky         - 1 - grid_import / total_demand  [0..1]
+                selfcons        - 1 - export / total_solar  [0..1]
+                equiv_cycles    - total_discharge / capacity (full charge cycles/year)
+        """
         battery = Battery(self.basic_data_set, capacity_kwh, power_kw)
         bms = BatteryManagementSystem(self.strategy, battery, self.driver)
         bms.initialize()

@@ -11,6 +11,7 @@
 1. **Biogas plant** — constant-output CHP plant trading on the spot market, earning the EEG Flexibilisierungsprämie
 2. **Solar PV park** — large-scale solar installation with optimised export timing
 3. **Community energy** — residential cluster with solar + wind, evaluated against real demand
+4. **Home storage** — single household with rooftop solar and fixed-tariff electricity contract
 
 **Data source:** German energy market data from SMARD.de (15-minute / hourly resolution), supplemented by hourly EPEX Spot prices.
 
@@ -21,18 +22,18 @@
 The system is structured in four layers:
 
 ```
-Applications  (BioBatSys, SolBatSys, SmardAnalyseSys)
+Applications  (BioBatSys, SolBatSys, SmardAnalyseSys, HomeBatSys)
       │
    ┌──┴────────────────────────────────────────────┐
-   │  BMS Strategies (PriceThreshold, DynamicDischarge, DayAhead)
+   │  BMS Strategies (PriceThreshold, DynamicDischarge, DayAhead, Autarky)
    │  Core BMS (BatteryManagementSystem)
    │  Core Battery (Battery)
    │  Core Analytics (BatteryAnalytics)
    └──┬────────────────────────────────────────────┘
       │
-   Drivers (BiogasDriver, SolarDriver, CommunityDriver, SenecDriver)
+   Drivers (BiogasDriver, SolarDriver, CommunityDriver, HomeDriver, SenecDriver)
       │
-   Data files (SMARD CSV, hourly price CSV)
+   Data files (SMARD CSV, household CSV, hourly price CSV)
 ```
 
 ### 1.1 Core Layer (`smard_utils/core/`)
@@ -211,6 +212,21 @@ Default region: `_lu` (Luxembourg).
 - Resolution is computed from the average timestep between consecutive records (variable)
 - Also preserves `act_battery_inflow`, `act_battery_exflow` for model validation
 
+
+
+---
+
+#### HomeDriver
+
+**Use case:** Single-household PV system with fixed electricity tariff.
+
+- Loads household SMARD-format CSV (semicolon-separated, German decimal notation)
+- Detects columns: Photovoltaik (solar), Gesamtverbrauch/Netzlast (demand)
+- my_renew = solar [kWh per period], my_demand = demand [kWh per period], both positive
+- Resolution computed from consecutive timestamps
+- Adds price columns (price_per_kwh, avrgprice) from fix_price config key
+- Compatible with CSV produced by senec2smardformat
+
 ---
 
 ### 1.3 BMS Strategies (`smard_utils/bms_strategies/`)
@@ -267,6 +283,7 @@ Simulates realistic day-ahead market operation with explicit information constra
 - At simulation start and at **13:00 each day**: receives the next day's 24 hourly prices (EPEX Spot day-ahead auction)
 - Plans a per-hour schedule (`charge` / `discharge` / `idle`) based only on prices known at that moment
 - Average of the known price window is the reference
+- should_charge returns True on both charge AND idle plan hours (charges opportunistically when not discharging)
 
 ```
 price >= discharge_threshold × known_avg  → discharge
@@ -284,6 +301,27 @@ factor    = 1 − (1 − intensity)³
 - `discharge_threshold` (default: 1.2) — price must be ≥ 120 % of window average to discharge
 - `charge_threshold` (default: 0.8) — price must be ≤ 80 % of window average to charge
 - `control_exflow` (default: 3) — same as DynamicDischargeStrategy
+
+
+
+---
+
+#### AutoarkyStrategy
+
+**Used by:** HomeBatSys, SmardAnalyseSys (optional, via --strategy autarky)
+
+Maximises self-sufficiency from physical surplus/deficit. No spot-price data required.
+Requires demand > 0 sign convention (household/community scenarios).
+
+    should_discharge: deficit > 0 AND storage > min_soc * capacity
+    should_charge:    surplus > 0 AND storage < max_soc * capacity
+    should_export:    always True
+
+    surplus = renew - demand,  deficit = demand - renew
+    Charge amount:    min(surplus, room_to_max_soc, power_limit * dt)
+    Discharge amount: min(deficit, (storage - min_soc*cap) * efficiency_discharge, power_limit*dt)
+
+Key parameters: min_soc (0.05), max_soc (0.95), efficiency_discharge (0.96)
 
 ---
 
@@ -316,6 +354,8 @@ Default configuration:
     "load_threshold": 1.0,        # price threshold multiplier
     "load_threshold_hytheresis": 0.0,
     "control_exflow": 0,
+    "fcr_capacity_kw": 0,              # kW reserved for FCR/Regelleistung (0 = disabled)
+    "fcr_price_eur_per_kw_year": 0,    # EUR/kW/year FCR capacity payment
 }
 ```
 
@@ -375,6 +415,31 @@ Default configuration:
 }
 ```
 
+
+
+---
+
+#### HomeBatSys (smard_utils/homebatsys.py)
+
+**Scenario:** Single-household rooftop solar with battery, evaluated against fixed electricity tariff.
+
+**Economic goals:** Maximise autarky and self-consumption; quantify savings per kWh capacity.
+
+**Strategy:** AutoarkyStrategy only. No spot-price data required.
+
+**Output columns:** cap [kWh], grid [kWh], savings [EUR], autarky [%], selfcons[%], EUR/kWh, cycles
+
+    savings = (grid_no_bat - grid_with_bat) * fix_price
+            + (export_with - export_no_bat) * feed_in_price
+    EUR/kWh = savings / capacity_kwh   (annual return per kWh invested)
+
+Default configuration:
+
+    fix_price:    0.28   # EUR/kWh all-in grid electricity price
+    feed_in_price: 0.0   # EUR/kWh feed-in tariff (0 = no compensation)
+
+Note: HomeBatSys uses kWh (not MWh) for capacity/power. FCR not applicable.
+
 ---
 
 ## 2. Data Acquisition
@@ -409,6 +474,7 @@ Entry points (defined in `setup.py`):
 | `biobatsys` | `biobatsys:main` | `price_threshold` | `de` |
 | `solbatsys` | `solbatsys:main` | `dynamic_discharge` | `de` |
 | `community` | `community:main` | `dynamic_discharge` | `lu` |
+| `homebatsys` | `homebatsys:main` | autarky (only) | n/a |
 
 Common arguments:
 ```
@@ -416,6 +482,17 @@ Common arguments:
 -r / --region     region code without underscore (e.g. de, lu)
 -d / --data       path to SMARD CSV file (auto-detected from region if omitted)
 -y / --year       override year for price data
+-c / --config     JSON config file (auto-detects basic_data_set.conf in cwd)
+```
+
+Config auto-detection: if basic_data_set.conf exists in the current working directory and no -c flag is given, it is loaded before CLI arguments are applied.
+
+homebatsys-only:
+```
+--fix-price   EUR/kWh   grid electricity price (default: 0.28)
+--feed-in     EUR/kWh   feed-in tariff (default: 0.0)
+--capacity    kWh ...   battery capacity list (default: 5 10 15 20)
+--power       kW  ...   battery power list (default: 3.5 7.0 8.5 10.0)
 ```
 
 Data file auto-detection pattern: `quarterly/smard_data_{region}/smard_2024_complete.csv`
@@ -461,6 +538,10 @@ Data file auto-detection pattern: `quarterly/smard_data_{region}/smard_2024_comp
 | `test_drivers.py` | Driver data loading, column mapping, resolution calculation |
 | `test_strategies.py` | Strategy decisions: PriceThreshold, DynamicDischarge |
 | `test_day_ahead_strategy.py` | Day-ahead information boundary: 13:00 update, schedule planning |
+| `test_autarky_strategy.py` | AutoarkyStrategy branches: should_discharge/charge/export, amounts |
+| `test_homebatsys.py` | HomeBatSys + HomeDriver: data loading, simulation, CLI args |
+| `test_apps_extended.py` | BioBatSys/SolBatSys/SmardAnalyseSys strategies, _run_one, main() |
+| `test_cli.py` | cli.py helpers: create_parser, resolve_data_path, apply_config |
 | `test_integration.py` | End-to-end simulation with real-like data |
 
 ### Key invariants to verify
@@ -518,3 +599,4 @@ no bat      4868.1     5630.2      0.71      533.9       535.5         0.00     
 |---|---|---|
 | 1.0 | 2026-02-11 | Initial requirements document (extracted from original design) |
 | 2.0 | 2026-02-19 | Full rewrite to match refactored modular architecture |
+| 2.1 | 2026-02-27 | Add HomeBatSys, HomeDriver, AutoarkyStrategy; FCR keys; DayAheadStrategy charge-on-idle; homebatsys CLI; updated test table |
