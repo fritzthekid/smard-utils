@@ -122,7 +122,7 @@ class Analyse(BatterySimulation):
         return df
 
     def prepare_price(self):
-        if self.year == None:
+        if self.year is None:
             self.data["price_per_kwh"] = self.data["my_demand"]*0+self.costs_per_kwh
         else:
             path = f"{root_dir}/costs"

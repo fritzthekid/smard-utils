@@ -5,7 +5,6 @@ Loads SMARD data and provides constant biogas injection.
 """
 
 import pandas as pd
-import numpy as np
 from smard_utils.core.driver import EnergyDriver
 
 

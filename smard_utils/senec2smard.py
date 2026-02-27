@@ -61,7 +61,6 @@ def load_senec(csv_file_path: str) -> pd.DataFrame:
 
     # Parse timestamps
     timestamps = _parse_timestamp_col(df)
-    n_total = len(df)
     bad = timestamps.isna().sum()
     if bad:
         print(f"  Dropped {bad} rows with unparseable timestamps")

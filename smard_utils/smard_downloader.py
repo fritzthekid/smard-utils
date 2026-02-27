@@ -78,8 +78,7 @@ def get_smard_data(start_date, end_date, module_ids, output_dir="smard_data"):
 
         logging.info(f"Requesting data from {current_date.strftime('%Y-%m-%d')} to {chunk_end_date.strftime('%Y-%m-%d')}...")
 
-        if True:
-            # Send the request with the correct headers and payload
+        try:
             response = requests.post(base_url, headers=headers, data=payload)
             response.raise_for_status()
 
@@ -95,9 +94,9 @@ def get_smard_data(start_date, end_date, module_ids, output_dir="smard_data"):
                         os.rename(os.path.join(output_dir, file_info.filename), output_path)
                         logging.info(f"  -> Saved {output_path}")
 
-        elif False: # requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException as e:
             logging.error(f"An error occurred during request: {e}")
-        else: # zipfile.BadZipFile:
+        except zipfile.BadZipFile:
             logging.error("Downloaded file is not a valid zip file. Response text: %s", response.text[:200])
 
         # Move to the next time window

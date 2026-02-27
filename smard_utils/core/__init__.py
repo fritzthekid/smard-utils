@@ -20,3 +20,5 @@ __all__ = [
     'BMSStrategy',
     'BatteryAnalytics',
 ]
+
+from smard_utils.core.base_sys import BaseAnalysisSys

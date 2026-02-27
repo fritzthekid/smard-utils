@@ -23,15 +23,15 @@ cycles      Equivalent full discharge cycles per year.
 
 import argparse
 import os
-from concurrent.futures import ProcessPoolExecutor
 
-import numpy as np
 import pandas as pd
 
 from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.drivers.home_driver import HomeDriver
-from smard_utils.bms_strategies.autarky import AutoarkyStrategy
+from smard_utils.bms_strategies.registry import get_strategy
+from smard_utils.core.base_sys import BaseAnalysisSys
+from smard_utils.utils.reporter import ResultsReporter
 
 
 euro_sign = "\N{euro sign}"
@@ -41,10 +41,11 @@ euro_sign = "\N{euro sign}"
 # Main application class
 # ---------------------------------------------------------------------------
 
-class HomeBatSys:
+class HomeBatSys(BaseAnalysisSys):
     """Home storage system – autarky optimisation with fixed electricity price."""
 
-    def __init__(self, csv_file_path: str, basic_data_set: dict = None):
+    def __init__(self, csv_file_path: str, basic_data_set: dict = None,
+                 driver=None, strategy=None):
         """
         Initialise home battery analysis system.
 
@@ -54,12 +55,16 @@ class HomeBatSys:
         """
         self.basic_data_set = (basic_data_set or {}).copy()
 
-        self.driver = HomeDriver(self.basic_data_set)
+        # Initialize driver (injectable for testing, D3)
+        self.driver = driver or HomeDriver(self.basic_data_set)
         self.driver.load_data(csv_file_path)
+        self.driver.log_info(csv_file_path)
 
         self.data = self.driver.data
         self.resolution = self.driver.resolution
-        self.strategy = AutoarkyStrategy(self.basic_data_set)
+        # Initialize strategy via registry (injectable for testing, D2)
+        strategy_name = self.basic_data_set.get("strategy", "autarky")
+        self.strategy = strategy or get_strategy(strategy_name, self.basic_data_set)
         self.results_df = None
 
     # ------------------------------------------------------------------
@@ -141,7 +146,7 @@ class HomeBatSys:
 
         n = len(full_cap)
         max_workers = min(n, os.cpu_count() or 1)
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with self._make_executor(max_workers) as executor:
             results = list(executor.map(self._run_one, full_cap, full_pwr))
 
         # Store results for webapp / programmatic access
@@ -159,73 +164,15 @@ class HomeBatSys:
     # ------------------------------------------------------------------
 
     def _print_results(self, results: list):
-        fix_price = self.basic_data_set.get('fix_price', 0.28)
-        feed_in_price = self.basic_data_set.get('feed_in_price', 0.0)
-
-        # Baseline (no battery, index 0)
-        base = results[0]
-        grid_no_bat = base['grid_import_kwh']
-        export_no_bat = base['export_kwh']
-
-        total_solar = self.data['my_renew'].sum()
-        total_demand = self.data['my_demand'].sum()
-
-        print(f"\n{'='*72}")
-        print(f"Home Battery Autarky Analysis")
-        print(f"  Fix price : {fix_price:.3f} {euro_sign}/kWh")
-        if feed_in_price > 0:
-            print(f"  Feed-in   : {feed_in_price:.3f} {euro_sign}/kWh")
-        print(f"  Solar     : {total_solar:.0f} kWh/year")
-        print(f"  Demand    : {total_demand:.0f} kWh/year")
-        print(f"{'='*72}")
-
-        cols = [
-            "cap [kWh]",
-            "grid [kWh]",
-            f"savings [{euro_sign}]",
-            "autarky [%]",
-            "selfcons[%]",
-            f"{euro_sign}/kWh",
-            "cycles",
-        ]
-
-        rows = []
-        for i, r in enumerate(results):
-            cap = r['capacity_kwh']
-            grid = r['grid_import_kwh']
-
-            # Net savings: avoided grid cost minus lost feed-in revenue
-            savings = (
-                (grid_no_bat - grid) * fix_price
-                + (r['export_kwh'] - export_no_bat) * feed_in_price
-            )
-
-            if i == 0:
-                cap_str = "0 (no bat)"
-                savings_str = "0"
-                eur_per_kwh_str = "-"
-                cycles_str = "-"
-            else:
-                cap_str = f"{cap:.0f}"
-                savings_str = f"{savings:.0f}"
-                eur_per_kwh_str = f"{savings / max(cap, 1e-10):.1f}"
-                cycles_str = f"{r['equiv_cycles']:.0f}"
-
-            rows.append([
-                cap_str,
-                f"{grid:.0f}",
-                savings_str,
-                f"{r['autarky'] * 100:.1f}",
-                f"{r['selfcons'] * 100:.1f}",
-                eur_per_kwh_str,
-                cycles_str,
-            ])
-
-        df_out = pd.DataFrame(rows, columns=cols)
-        with pd.option_context('display.max_columns', None):
-            print(df_out.to_string(index=False))
-        print(f"{'='*72}")
-        print(f"  {euro_sign}/kWh = annual savings per kWh of battery capacity")
+        """Delegate all formatting/printing to ResultsReporter (S3)."""
+        reporter = ResultsReporter()
+        reporter.report_home(
+            results=results,
+            fix_price=self.basic_data_set.get('fix_price', 0.28),
+            feed_in_price=self.basic_data_set.get('feed_in_price', 0.0),
+            total_solar=self.data['my_renew'].sum(),
+            total_demand=self.data['my_demand'].sum(),
+        )
 
 
 # ---------------------------------------------------------------------------

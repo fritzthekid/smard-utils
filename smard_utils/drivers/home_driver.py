@@ -31,8 +31,6 @@ class HomeDriver(EnergyDriver):
         Returns:
             DataFrame with my_renew and my_demand columns
         """
-        print(f"Loading home data: {csv_file_path}")
-
         df = pd.read_csv(csv_file_path, sep=';', decimal=',')
 
         # Build datetime index
@@ -70,11 +68,24 @@ class HomeDriver(EnergyDriver):
         result['avrgprice'] = fix_price
 
         self._data = result
+        return result
 
+    def log_info(self, csv_file_path: str = ""):
+        """
+        Print diagnostic summary of loaded data.
+
+        Call this after load_data() when console output is desired.
+        Separating logging from data loading satisfies SRP (S4).
+
+        Args:
+            csv_file_path: Original file path to include in output
+        """
+        if self._data is None:
+            return
+        result = self._data
+        print(f"Loading home data: {csv_file_path}")
         print(f"  Records   : {len(result)}")
         print(f"  Resolution: {self.resolution * 60:.0f} min")
-        print(f"  Date range: {result.index[0]}  →  {result.index[-1]}")
+        print(f"  Date range: {result.index[0]}  \u2192  {result.index[-1]}")
         print(f"  Solar     : {result['my_renew'].sum():.1f} kWh")
         print(f"  Demand    : {result['my_demand'].sum():.1f} kWh")
-
-        return result

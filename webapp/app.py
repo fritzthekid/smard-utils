@@ -1,20 +1,15 @@
 # coding=utf-8
-"""SMARD Utils Webapp - Battery storage analysis for renewable energy systems."""
+"""SMARD Utils Webapp — Flask application and route handlers."""
 
 import os
 import sys
-import io
 import shutil
 import json
-import contextlib
-import tempfile
 import logging
+import tempfile
 
-import numpy as np
-import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 from flask import (Flask, request, jsonify, render_template, send_from_directory,
                    redirect, url_for, flash, session)
@@ -23,17 +18,12 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.utils import secure_filename
 
-# Add parent directory to path so we can import smard_utils
+# Add parent directory so smard_utils is importable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from smard_utils.biobatsys import BioBatSys
-from smard_utils.biobatsys import basic_data_set as biogas_defaults
-from smard_utils.solbatsys import SolBatSys
-from smard_utils.solbatsys import basic_data_set as solar_defaults
-from smard_utils.community import SmardAnalyseSys
-from smard_utils.community import basic_data_set as community_defaults
-from smard_utils.homebatsys import HomeBatSys
-from smard_utils.homebatsys import basic_data_set as home_defaults
+from webapp.scenarios import SCENARIOS, STRATEGIES          # O3: registry
+from webapp.chart_service import generate_chart, generate_home_chart   # S5c
+from webapp.analysis_service import run_analysis_from_request          # S5b
 
 logger = logging.getLogger(__name__)
 
@@ -53,65 +43,6 @@ CORS(app)
 
 ALLOWED_EXTENSIONS = {'csv', 'json', 'conf'}
 SESSION_DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_data.json')
-
-SCENARIOS = {
-    'biogas': {
-        'name': 'Biogas (BioBatSys)',
-        'class': BioBatSys,
-        'defaults': biogas_defaults,
-        'default_strategy': 'price_threshold',
-        'default_capacities': '1, 5, 10, 20, 100',
-        'default_powers': '0.5, 2.5, 5, 10, 50',
-        'default_region': 'de',
-        'capacity_params': [
-            {'key': 'constant_biogas_kw', 'label': 'Biogas Nennleistung [kW]', 'default': 1000},
-        ],
-    },
-    'solar': {
-        'name': 'Solar (SolBatSys)',
-        'class': SolBatSys,
-        'defaults': solar_defaults,
-        'default_strategy': 'dynamic_discharge',
-        'default_capacities': '1, 5, 10, 20, 50, 70',
-        'default_powers': '0.5, 2.5, 5, 10, 25, 35',
-        'default_region': 'de',
-        'capacity_params': [
-            {'key': 'solar_max_power', 'label': 'Solar Peak [kWp]', 'default': 10000},
-        ],
-    },
-    'community': {
-        'name': 'Community (SmardAnalyseSys)',
-        'class': SmardAnalyseSys,
-        'defaults': community_defaults,
-        'default_strategy': 'dynamic_discharge',
-        'default_capacities': '0.1, 1, 5, 10, 20',
-        'default_powers': '0.05, 0.5, 2.5, 5, 10',
-        'default_region': 'lu',
-        'capacity_params': [
-            {'key': 'solar_max_power', 'label': 'Solar Peak [kWp]', 'default': 5000},
-            {'key': 'wind_nominal_power', 'label': 'Wind Nenn [kW]', 'default': 5000},
-        ],
-    },
-    'home': {
-        'name': 'Heimspeicher (HomeBatSys)',
-        'class': HomeBatSys,
-        'defaults': home_defaults,
-        'default_strategy': 'autarky',
-        'default_capacities': '5, 10, 15, 20',
-        'default_powers': '3.5, 7.0, 8.5, 10.0',
-        'default_region': '',
-        'capacity_unit': 'kWh',
-        'power_unit': 'kW',
-        'strategies': ['autarky'],
-        'no_region': True,
-        'capacity_params': [
-            {'key': 'fix_price', 'label': 'Strompreis [\u20ac/kWh]', 'default': 0.28},
-            {'key': 'feed_in_price', 'label': 'Einspeisung [\u20ac/kWh]', 'default': 0.0},
-        ],
-    },
-}
-
-STRATEGIES = ['price_threshold', 'dynamic_discharge', 'day_ahead', 'autarky']
 
 
 # --- Session management ---
@@ -165,82 +96,55 @@ def handle_large_file(e):
 def index():
     if request.method == 'GET':
         command = request.args.get('command')
-        if command == 'analysis':
+        if command in ('analysis', 'solbatsys', 'community', 'homebatsys'):
             if not is_authenticated():
                 return render_template('login.html')
             scenario = request.args.get('scenario', 'biogas')
             return show_analysis(scenario)
-        if command == 'solbatsys':
-            if not is_authenticated():
-                return render_template('login.html')
-            scenario = request.args.get('scenario', 'solbatsys')
-            return show_analysis(scenario)
-        if command == 'community':
-            if not is_authenticated():
-                return render_template('login.html')
-            scenario = request.args.get('scenario', 'community')
-            return show_analysis(scenario)
-        if command == 'homebatsys':
-            if not is_authenticated():
-                return render_template('login.html')
-            scenario = request.args.get('scenario', 'homebatsys')
-            return show_analysis(scenario)
         return render_template('index.html', authenticated=is_authenticated())
 
-    # POST handling
     command = request.form.get('command', '')
-
     if command == 'enter':
         return enter_session()
-    elif command == 'analysis':
+    if command in ('analysis', 'solbatsys', 'community', 'homebatsys'):
         if not is_authenticated():
             return render_template('login.html')
-        scenario = request.form.get('scenario', 'biogas')
-        return show_analysis(scenario)
-    elif command == 'run':
+        return show_analysis(request.form.get('scenario', 'biogas'))
+    if command == 'run':
         if not is_authenticated():
             return jsonify({'status': 'error', 'message': 'Session expired. Please reload.'}), 401
-        return run_analysis()
-    elif command == 'upload':
+        return _handle_run()
+    if command == 'upload':
         if not is_authenticated():
             return jsonify({'status': 'error', 'message': 'Session expired. Please reload.'}), 401
         return upload_file()
-    elif command == 'logout':
+    if command == 'logout':
         return logout()
-    elif command in ('impressum', 'datenschutz'):
+    if command in ('impressum', 'datenschutz'):
         return render_template(f'{command}.html')
-
     return render_template('index.html', authenticated=is_authenticated())
 
 
 def enter_session():
     """Validate honeypot + consent checkbox and create session."""
-    # Honeypot check: if bot filled the hidden field, reject
-    honeypot = request.form.get('website', '')
-    if honeypot:
+    if request.form.get('website', ''):
         flash('Access denied.', 'error')
         return render_template('login.html')
-
-    # Consent checkbox
-    consent = request.form.get('consent')
-    if not consent:
+    if not request.form.get('consent'):
         flash('Please acknowledge the data storage notice.', 'error')
         return render_template('login.html')
 
-    # Create session
     session_data = load_session_data()
-    session_data['id'] = session_data['id'] + 1
+    session_data['id'] += 1
     session['id'] = session_data['id']
     session['authenticated'] = True
     save_session_data(session_data)
     make_sessiondir()
-
     logger.info(f"New session created: {session['id']}")
     return redirect(url_for('index'))
 
 
 def logout():
-    """Clear session and remove temp directory."""
     try:
         shutil.rmtree(sessiondir())
     except Exception:
@@ -250,7 +154,6 @@ def logout():
 
 
 def show_analysis(scenario):
-    """Render analysis form for selected scenario."""
     sc = SCENARIOS.get(scenario, SCENARIOS['biogas'])
     return render_template('analysis.html',
                            scenario=scenario,
@@ -260,84 +163,19 @@ def show_analysis(scenario):
                            authenticated=is_authenticated())
 
 
-def run_analysis():
-    """Execute battery analysis and return results as JSON."""
+def _handle_run():
+    """Delegate to analysis_service, then chart_service, return JSON."""
     try:
-        scenario = request.form.get('scenario', 'biogas')
-        strategy = request.form.get('strategy', 'price_threshold')
-        region = request.form.get('region', 'de')
-        capacities_str = request.form.get('capacities', '')
-        powers_str = request.form.get('powers', '')
+        result, error_msg, status = run_analysis_from_request(
+            request, sessiondir, root_dir
+        )
+        if error_msg:
+            return jsonify({'status': 'error', 'message': error_msg}), status
 
-        sc = SCENARIOS.get(scenario, SCENARIOS['biogas'])
+        analyzer = result['analyzer']
+        scenario = result['scenario']
+        sdir = make_sessiondir()
 
-        # Parse capacity and power lists
-        try:
-            capacity_list = [float(x.strip()) for x in capacities_str.split(',') if x.strip()]
-            power_list = [float(x.strip()) for x in powers_str.split(',') if x.strip()]
-        except ValueError:
-            return jsonify({'status': 'error', 'message': 'Invalid capacity or power values.'}), 400
-
-        if len(capacity_list) != len(power_list):
-            return jsonify({'status': 'error', 'message': 'Capacity and power lists must have the same length.'}), 400
-
-        if not capacity_list:
-            return jsonify({'status': 'error', 'message': 'Please enter at least one capacity/power pair.'}), 400
-
-        # Determine data file
-        uploaded_file = request.form.get('uploaded_file', '')
-        if uploaded_file:
-            data_file = os.path.join(sessiondir(), uploaded_file)
-        elif scenario == 'home':
-            data_file = os.path.join(root_dir, 'data/smard_format/2024-home-smardformat.csv')
-        else:
-            data_file = os.path.join(root_dir, f'quarterly/smard_data_{region}/smard_2024_complete.csv')
-
-        if not os.path.exists(data_file):
-            return jsonify({'status': 'error', 'message': f'Data file not found: {os.path.basename(data_file)}'}), 400
-
-        # Build configuration
-        basic_data_set = sc['defaults'].copy()
-
-        # Apply config file overrides (before CLI-style params so params win)
-        config_filename = request.form.get('config_file', '').strip()
-        if config_filename:
-            config_path = os.path.join(sessiondir(), config_filename)
-            if os.path.exists(config_path):
-                with open(config_path) as f:
-                    overrides = json.load(f)
-                basic_data_set.update(overrides)
-
-        basic_data_set['strategy'] = strategy
-
-        # Apply optional capacity params (solar/wind/biogas)
-        for cp in sc.get('capacity_params', []):
-            val = request.form.get(cp['key'], '')
-            if val.strip():
-                try:
-                    basic_data_set[cp['key']] = float(val)
-                except ValueError:
-                    pass
-
-        # Create analyzer and run
-        region_code = f"_{region}"
-        if scenario == 'home':
-            analyzer = HomeBatSys(data_file, basic_data_set=basic_data_set)
-        else:
-            analyzer = sc['class'](data_file, region_code, basic_data_set=basic_data_set)
-
-        # Capture stdout output (the print_battery_results output)
-        stdout_capture = io.StringIO()
-        with contextlib.redirect_stdout(stdout_capture):
-            analyzer.run_analysis(
-                capacity_list=capacity_list,
-                power_list=power_list
-            )
-
-        table_text = stdout_capture.getvalue()
-
-        # Generate chart and save CSV
-        sdir = make_sessiondir()  # recreate dir if server restarted
         if scenario == 'home':
             chart_filename = generate_home_chart(analyzer, sdir)
             if analyzer.results_df is not None:
@@ -348,12 +186,11 @@ def run_analysis():
                 analyzer.battery_results.to_csv(os.path.join(sdir, 'results.csv'), index=False)
 
         session['output_file'] = chart_filename
-
         return jsonify({
             'status': 'success',
-            'table_text': table_text,
+            'table_text': result['table_text'],
             'chart_url': './download?file=chart',
-            'csv_url': './download?file=csv',
+            'csv_url':   './download?file=csv',
         })
 
     except Exception as e:
@@ -361,170 +198,15 @@ def run_analysis():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
-def generate_chart(analyzer, scenario, output_dir):
-    """Generate matplotlib chart from analysis results."""
-    df = analyzer.battery_results
-    if df is None or len(df) < 2:
-        return None
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-
-    cap_col = 'capacity kWh'
-    rev_col = 'revenue [\u20ac]'
-    sp_col = 'spot price [\u20ac]'
-
-    # Skip marker row (index 0) and no-battery baseline (index 1)
-    plot_df = df.iloc[2:].copy() if len(df) > 2 else df.iloc[1:].copy()
-
-    fp_col = f'fix price [\u20ac]'
-
-    if cap_col in plot_df.columns and rev_col in plot_df.columns:
-        capacities = plot_df[cap_col].values / 1000  # kWh -> MWh
-        revenues = plot_df[rev_col].values
-        x = np.arange(len(capacities))
-
-        # Baseline values from no-battery row (index 1)
-        baseline_rev = df[rev_col].iloc[1] if len(df) > 1 else 0
-        has_spot = sp_col in df.columns and sp_col in plot_df.columns
-        baseline_sp = df[sp_col].iloc[1] if has_spot and len(df) > 1 else None
-        spot_costs = plot_df[sp_col].values if has_spot else None
-
-        has_fix = fp_col in df.columns and fp_col in plot_df.columns
-        baseline_fp = df[fp_col].iloc[1] if has_fix and len(df) > 1 else None
-        fix_costs = plot_df[fp_col].values if has_fix else None
-
-        fix_contract = getattr(analyzer, 'basic_data_set', {}).get('fix_contract', False)
-
-        # --- Chart 1 ---
-        # Community: show import costs (fix price if fix_contract, else spot).
-        # Solar/biogas: show export revenue (increasing = good).
-        if scenario == 'community':
-            if fix_contract and has_fix:
-                ax1.bar(x, fix_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
-                ax1.set_ylabel('Fix Cost [T\u20ac]')
-                ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost (fix price)')
-            elif has_spot:
-                ax1.bar(x, spot_costs / 1000, color='#e67e22', alpha=0.8, edgecolor='#d35400')
-                ax1.set_ylabel('Spot Cost [T\u20ac]')
-                ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Import Cost (spot price)')
-        else:
-            ax1.bar(x, revenues / 1000, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
-            ax1.set_ylabel('Revenue [T\u20ac]')
-            ax1.set_title(f'{SCENARIOS[scenario]["name"]} - Revenue by Capacity')
-        ax1.set_xlabel('Battery Capacity [MWh]')
-        ax1.set_xticks(x)
-        ax1.set_xticklabels([f'{c:.1f}' for c in capacities], rotation=45)
-        ax1.grid(axis='y', alpha=0.3)
-
-        # --- Chart 2: Net benefit per kWh ---
-        # Community: import-cost savings per kWh capacity (matches printed sp/fp €/kWh).
-        #   Use fix-price savings when fix_contract, else spot-price savings.
-        #   revenue_gain is NOT added: with autarky the battery reduces exports (negative
-        #   revenue_gain) which would cancel out the import savings and give wrong sign.
-        # Solar/biogas: revenue gain per kWh (they are sellers, spot_savings ≈ 0).
-        net_per_kwh = []
-        for i, (cap_kwh, rev) in enumerate(zip(plot_df[cap_col].values, revenues)):
-            if cap_kwh > 0:
-                if scenario == 'community':
-                    if fix_contract and has_fix and baseline_fp is not None:
-                        net_per_kwh.append((baseline_fp - fix_costs[i]) / cap_kwh)
-                    elif has_spot and baseline_sp is not None:
-                        net_per_kwh.append((baseline_sp - spot_costs[i]) / cap_kwh)
-                    else:
-                        net_per_kwh.append(0)
-                else:
-                    revenue_gain = rev - baseline_rev
-                    spot_savings = (baseline_sp - spot_costs[i]) if has_spot and baseline_sp is not None else 0
-                    net_per_kwh.append((revenue_gain + spot_savings) / cap_kwh)
-            else:
-                net_per_kwh.append(0)
-
-        bar_colors = ['#2ecc71' if v >= 0 else '#e74c3c' for v in net_per_kwh]
-        ax2.bar(x, net_per_kwh, color=bar_colors, alpha=0.8, edgecolor='#2980b9')
-        ax2.axhline(y=0, color='black', linewidth=0.8)
-        ax2.set_xlabel('Battery Capacity [MWh]')
-        if scenario == 'community' and fix_contract:
-            ax2.set_ylabel('Fix-Price Savings [\u20ac/kWh]')
-            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Savings per kWh (fix price)')
-        elif scenario == 'community':
-            ax2.set_ylabel('Spot-Price Savings [\u20ac/kWh]')
-            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Savings per kWh (spot price)')
-        else:
-            ax2.set_ylabel('Net Benefit [\u20ac/kWh]')
-            ax2.set_title(f'{SCENARIOS[scenario]["name"]} - Net Benefit per kWh')
-        ax2.set_xticks(x)
-        ax2.set_xticklabels([f'{c:.1f}' for c in capacities], rotation=45)
-        ax2.grid(axis='y', alpha=0.3)
-
-    plt.tight_layout()
-    chart_path = os.path.join(output_dir, 'results.svg')
-    plt.savefig(chart_path, format='svg', bbox_inches='tight')
-    plt.close(fig)
-
-    return 'results.svg'
-
-
-def generate_home_chart(analyzer, output_dir):
-    """Generate chart for home storage autarky results."""
-    df = analyzer.results_df
-    if df is None or len(df) < 2:
-        return None
-
-    plot_df = df.iloc[1:]  # skip no-battery baseline (row 0)
-    caps = plot_df['capacity_kwh'].values
-    grid = plot_df['grid_import_kwh'].values
-    autarky = plot_df['autarky'].values * 100
-    savings = plot_df['savings_eur'].values
-
-    x = np.arange(len(caps))
-    base_grid = df['grid_import_kwh'].iloc[0]
-    base_autarky = df['autarky'].iloc[0] * 100
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-
-    # Chart 1: grid import per capacity
-    ax1.bar(x, grid, color='#e67e22', alpha=0.8, edgecolor='#d35400')
-    ax1.axhline(base_grid, color='#c0392b', linestyle='--', linewidth=1.2, label='kein Speicher')
-    ax1.set_xlabel('Kapazität [kWh]')
-    ax1.set_ylabel('Netzbezug [kWh/a]')
-    ax1.set_title('Netzbezug nach Kapazität')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels([f'{c:.0f}' for c in caps], rotation=45)
-    ax1.legend()
-    ax1.grid(axis='y', alpha=0.3)
-
-    # Chart 2: autarky rate per capacity
-    ax2.bar(x, autarky, color='#2ecc71', alpha=0.8, edgecolor='#27ae60')
-    ax2.axhline(base_autarky, color='#c0392b', linestyle='--', linewidth=1.2, label='kein Speicher')
-    ax2.set_xlabel('Kapazität [kWh]')
-    ax2.set_ylabel('Autarkiegrad [%]')
-    ax2.set_title('Autarkiegrad nach Kapazität')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels([f'{c:.0f}' for c in caps], rotation=45)
-    ax2.set_ylim(0, 100)
-    ax2.legend()
-    ax2.grid(axis='y', alpha=0.3)
-
-    plt.tight_layout()
-    chart_path = os.path.join(output_dir, 'results.svg')
-    plt.savefig(chart_path, format='svg', bbox_inches='tight')
-    plt.close(fig)
-    return 'results.svg'
-
-
 def upload_file():
-    """Handle CSV file upload."""
     uploaded = request.files.get('datafile')
     if not uploaded:
         return jsonify({'status': 'error', 'message': 'No file selected.'}), 400
-
     filename = secure_filename(uploaded.filename)
     if not allowed_file(filename):
         return jsonify({'status': 'error', 'message': 'Only CSV files are allowed.'}), 400
-
     filepath = os.path.join(sessiondir(), filename)
     uploaded.save(filepath)
-
     return jsonify({
         'status': 'ok',
         'filename': filename,
@@ -534,10 +216,8 @@ def upload_file():
 
 @app.route('/download', methods=['GET'])
 def download():
-    """Serve result files from session directory."""
     if not is_authenticated():
         return jsonify({'status': 'error', 'message': 'Not authenticated.'}), 401
-
     file_type = request.args.get('file', 'chart')
     try:
         sdir = sessiondir()
@@ -545,14 +225,13 @@ def download():
         return jsonify({'status': 'error', 'message': 'Session expired.'}), 401
 
     if file_type == 'chart':
-        filename = 'results.svg'
-        if os.path.isfile(os.path.join(sdir, filename)):
-            return send_from_directory(sdir, filename, mimetype='image/svg+xml')
+        fname = 'results.svg'
+        if os.path.isfile(os.path.join(sdir, fname)):
+            return send_from_directory(sdir, fname, mimetype='image/svg+xml')
     elif file_type == 'csv':
-        filename = 'results.csv'
-        if os.path.isfile(os.path.join(sdir, filename)):
-            return send_from_directory(sdir, filename, as_attachment=True, mimetype='text/csv')
-
+        fname = 'results.csv'
+        if os.path.isfile(os.path.join(sdir, fname)):
+            return send_from_directory(sdir, fname, as_attachment=True, mimetype='text/csv')
     return jsonify({'status': 'error', 'message': 'File not found.'}), 404
 
 
@@ -561,12 +240,7 @@ def favicon():
     return '', 204
 
 
-# --- WSGI dispatcher for URL prefix ---
-
-application = DispatcherMiddleware(Flask('dummy'), {
-    url_prefix: app
-})
-
+application = DispatcherMiddleware(Flask('dummy'), {url_prefix: app})
 
 if __name__ == '__main__':
     os.makedirs(tmpdir, exist_ok=True)

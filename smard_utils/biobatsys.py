@@ -5,21 +5,18 @@ Uses new modular architecture with backward-compatible interface.
 """
 
 import os
-import sys
 import logging
 import types
-from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 import numpy as np
 
-from smard_utils.core.driver import EnergyDriver
 from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.biogas_driver import BiogasDriver
-from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
-from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
+from smard_utils.bms_strategies.registry import get_strategy
+from smard_utils.core.base_sys import BaseAnalysisSys
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -28,10 +25,11 @@ euro_sign = "\N{euro sign}"
 root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/.."
 
 
-class BioBatSys:
+class BioBatSys(BaseAnalysisSys):
     """Biogas battery system with spot-price trading strategy."""
 
-    def __init__(self, csv_file_path, region="", basic_data_set={}):
+    def __init__(self, csv_file_path, region="", basic_data_set={},
+                 driver=None, strategy=None):
         """
         Initialize biogas analysis system.
 
@@ -39,24 +37,23 @@ class BioBatSys:
             csv_file_path: Path to SMARD CSV data file
             region: Region code (e.g., "_de" for Germany)
             basic_data_set: Configuration dictionary
+            driver: Optional EnergyDriver override (D3 — injectable)
+            strategy: Optional BMSStrategy override (D2 — injectable)
         """
         self.region = region
         self.basic_data_set = basic_data_set.copy()
 
-        # Initialize driver
-        self.driver = BiogasDriver(basic_data_set)
+        # Initialize driver (injectable for testing, D3)
+        self.driver = driver or BiogasDriver(basic_data_set)
         self.driver.load_data(csv_file_path)
 
         # Initialize analytics
         self.analytics = BatteryAnalytics(self.driver, basic_data_set)
         self.analytics.prepare_prices()
 
-        # Initialize strategy (default: BatteryBioBatModel logic)
+        # Initialize strategy via registry (injectable for testing, D2)
         strategy_name = basic_data_set.get("strategy", "price_threshold")
-        if strategy_name == "day_ahead":
-            self.strategy = DayAheadStrategy(basic_data_set)
-        else:
-            self.strategy = PriceThresholdStrategy(basic_data_set)
+        self.strategy = strategy or get_strategy(strategy_name, basic_data_set)
 
         # Storage for results
         self.battery_results = None
@@ -133,7 +130,7 @@ class BioBatSys:
 
         n = len(full_capacity_list)
         max_workers = min(n, os.cpu_count() or 1)
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with self._make_executor(max_workers) as executor:
             run_outputs = list(executor.map(self._run_one, full_capacity_list, full_power_list))
 
         for output in run_outputs:

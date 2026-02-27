@@ -16,7 +16,7 @@ class CommunityDriver(SolarDriver):
         super().__init__(basic_data_set, region=region)
 
     def load_data(self, csv_file_path: str) -> pd.DataFrame:
-        df = super().load_data(csv_file_path)
+        super().load_data(csv_file_path)
         # SolarDriver divides year_demand by 1000 (kWh->MWh) for my_demand,
         # but my_renew stays in kWh. For community scenarios where demand
         # is significant, both must be in kWh.

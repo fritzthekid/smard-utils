@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import os
 
+from smard_utils.core.price_provider import PriceProvider
 
 root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/../.."
 
@@ -28,61 +29,19 @@ class BatteryAnalytics:
         self.simulation_results = []
         self.costs_per_kwh = basic_data_set.get("fix_costs_per_kwh", 11) / 100
 
-    def prepare_prices(self):
+    def prepare_prices(self, provider=None):
         """
-        Load and merge price data into driver data.
+        Load and merge price data into driver data (delegates to PriceProvider, S1/D1).
 
-        Adds columns: price_per_kwh, avrgprice
+        Args:
+            provider: Optional PriceProvider override (injectable for testing).
+                      If None, a default PriceProvider is created from root_dir.
+
+        Adds columns to driver data: price_per_kwh, avrgprice
         """
-        year = self.basic_data_set.get("year")
-
-        if self.basic_data_set.get("fix_contract", False) or year is None:
-            # Fixed price contract
-            marketing_costs = self.basic_data_set.get("marketing_costs", 0.0)
-            self.driver._data["price_per_kwh"] = self.costs_per_kwh + marketing_costs
-            self.driver._data["avrgprice"] = self.costs_per_kwh + marketing_costs
-        else:
-            # Load hourly spot prices
-            path = f"{root_dir}/costs"
-            costs_file = f"{path}/{year}-hour-price.csv"
-
-            if not os.path.exists(costs_file):
-                print(f"⚠ Price file not found: {costs_file}, using fixed price")
-                self.driver._data["price_per_kwh"] = self.costs_per_kwh
-                self.driver._data["avrgprice"] = self.costs_per_kwh
-                return
-
-            costs = pd.read_csv(costs_file)
-            costs["price"] /= 100  # Convert from ct/kWh to €/kWh
-
-            total_average = costs["price"].mean()
-
-            # Calculate rolling 25-hour average (centered)
-            window_size = 25
-            costs["avrgprice"] = costs["price"].rolling(
-                window=window_size,
-                center=True,
-                min_periods=1
-            ).mean()
-
-            # Fill edge values
-            costs.fillna({"avrgprice": total_average}, inplace=True)
-
-            # Parse datetime and set index
-            costs["dtime"] = pd.to_datetime(costs["time"])
-            costs = costs.set_index("dtime")
-
-            if costs.index[0].year != year:
-                raise ValueError(f"Year mismatch: costs file is {costs.index[0].year}, expected {year}")
-
-            # Vectorized alignment to data timestamps
-            start_time = costs.index[0]
-            hours_diff = ((self.driver.data.index - start_time).total_seconds() / 3600).astype(int)
-            hours_diff = np.clip(hours_diff, 0, len(costs) - 1)
-
-            marketing_costs = self.basic_data_set.get("marketing_costs", 0.0)
-            self.driver._data["price_per_kwh"] = costs["price"].iloc[hours_diff].values + marketing_costs
-            self.driver._data["avrgprice"] = costs["avrgprice"].iloc[hours_diff].values + marketing_costs
+        if provider is None:
+            provider = PriceProvider(root_dir, self.basic_data_set)
+        provider.load_prices(self.driver)
 
     def add_simulation_result(self, capacity: float, power: float,
                              bms, step_results: list) -> dict:
@@ -209,7 +168,7 @@ class BatteryAnalytics:
         euro_sign = "\N{euro sign}"
 
         print(f"\n{'='*80}")
-        print(f"Battery Simulation Results")
+        print("Battery Simulation Results")
         print(f"{'='*80}")
 
         # Select and format columns

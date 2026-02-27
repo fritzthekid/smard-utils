@@ -6,7 +6,6 @@ Provides abstract interface for loading and preparing time-series energy data.
 
 from abc import ABC, abstractmethod
 import pandas as pd
-import numpy as np
 
 
 class EnergyDriver(ABC):

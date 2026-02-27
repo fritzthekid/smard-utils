@@ -6,10 +6,8 @@ Analyzes a small community with solar + wind + demand.
 """
 
 import os
-import sys
 import logging
 import types
-from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 import numpy as np
@@ -18,9 +16,8 @@ from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.community_driver import CommunityDriver
-from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
-from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
-from smard_utils.bms_strategies.autarky import AutoarkyStrategy
+from smard_utils.bms_strategies.registry import get_strategy
+from smard_utils.core.base_sys import BaseAnalysisSys
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -29,10 +26,11 @@ euro_sign = "\N{euro sign}"
 root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/.."
 
 
-class SmardAnalyseSys:
+class SmardAnalyseSys(BaseAnalysisSys):
     """Community energy system with solar + wind + demand analysis."""
 
-    def __init__(self, csv_file_path, region="_lu", basic_data_set={}):
+    def __init__(self, csv_file_path, region="_lu", basic_data_set={},
+                 driver=None, strategy=None):
         """
         Initialize community analysis system.
 
@@ -44,22 +42,17 @@ class SmardAnalyseSys:
         self.region = region
         self.basic_data_set = basic_data_set.copy()
 
-        # Initialize driver
-        self.driver = CommunityDriver(basic_data_set, region=region)
+        # Initialize driver (injectable for testing, D3)
+        self.driver = driver or CommunityDriver(basic_data_set, region=region)
         self.driver.load_data(csv_file_path)
 
         # Initialize analytics
         self.analytics = BatteryAnalytics(self.driver, basic_data_set)
         self.analytics.prepare_prices()
 
-        # Initialize strategy
+        # Initialize strategy via registry (injectable for testing, D2)
         strategy_name = basic_data_set.get("strategy", "dynamic_discharge")
-        if strategy_name == "day_ahead":
-            self.strategy = DayAheadStrategy(basic_data_set)
-        elif strategy_name == "autarky":
-            self.strategy = AutoarkyStrategy(basic_data_set)
-        else:
-            self.strategy = DynamicDischargeStrategy(basic_data_set)
+        self.strategy = strategy or get_strategy(strategy_name, basic_data_set)
 
         # Storage for results
         self.battery_results = None
@@ -105,7 +98,7 @@ class SmardAnalyseSys:
 
         n = len(full_capacity_list)
         max_workers = min(n, os.cpu_count() or 1)
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with self._make_executor(max_workers) as executor:
             run_outputs = list(executor.map(self._run_one, full_capacity_list, full_power_list))
 
         for output in run_outputs:

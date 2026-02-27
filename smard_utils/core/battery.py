@@ -4,7 +4,6 @@ Physical battery model.
 Based on BatterySolBatModel from battery_model.py with complete physics simulation.
 """
 
-import numpy as np
 
 
 class Battery:

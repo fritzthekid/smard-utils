@@ -5,7 +5,6 @@ Loads SMARD data and scales proportionally based on installed capacity.
 """
 
 import pandas as pd
-import numpy as np
 from smard_utils.core.driver import EnergyDriver
 
 
