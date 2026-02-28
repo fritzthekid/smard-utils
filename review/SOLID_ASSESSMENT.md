@@ -88,9 +88,9 @@ Items in `bck/`, legacy modules, and `setup.py` are excluded.
 |---|---|---|---|---|
 | S6 | `bms_strategies/day_ahead.py:69` | `DayAheadStrategy._update_day_ahead_plan` | 13 | Method handles planning, price scanning, schedule writing and edge cases — split into helpers. |DONE 2026-02-27: Split into `_collect_prices_for_date()`, `_collect_prices_from_hour()`, `_assign_schedule()`
 | S7 | `drivers/senec_driver.py:16` | `SenecDriver.load_data` | 13 | Single method loads, parses, infers resolution, validates and transforms — extract sub-steps. |DONE 2026-02-27: Split into `_rename_columns()`, `_parse_timestamps()`, `_build_energy_columns()`
-| S5a | `webapp/app.py:165` | `index` | 19 | Route handler doing form parsing, config merging, file handling, and HTML rendering. |
-| S5b | `webapp/app.py:263` | `run_analysis` | 20 | Analysis orchestration + stdout capture + chart generation + CSV export in one function. |
-| S5c | `webapp/app.py:364` | `generate_chart` | 13 | Chart construction with too many scenario-specific branches. |
+| S5a | `webapp/app.py:165` | `index` | 19 | Route handler doing form parsing, config merging, file handling, and HTML rendering. |DONE 2026-02-27: Simplified in webapp split; index() now delegates to analysis_service
+| S5b | `webapp/app.py:263` | `run_analysis` | 20 | Analysis orchestration + stdout capture + chart generation + CSV export in one function. |DONE 2026-02-27: Extracted to `webapp/analysis_service.py`
+| S5c | `webapp/app.py:364` | `generate_chart` | 13 | Chart construction with too many scenario-specific branches. |DONE 2026-02-27: Extracted to `webapp/chart_service.py`
 
 ### Actual bugs found
 
