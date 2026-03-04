@@ -9,7 +9,6 @@ contract explicitly (L, D principles).
 
 from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor
-import os
 
 
 class BaseAnalysisSys(ABC):

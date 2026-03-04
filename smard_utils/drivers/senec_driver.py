@@ -4,8 +4,10 @@ SENEC home battery driver.
 Loads SENEC monitoring data with pass-through values.
 """
 
-import pandas as pd
 from datetime import datetime
+
+import pandas as pd
+
 from smard_utils.core.driver import EnergyDriver
 
 
@@ -28,24 +30,24 @@ class SenecDriver(EnergyDriver):
         """
         mapping = {}
         for col in df.columns:
-            if 'Uhrzeit' in col:
-                mapping[col] = 'stime'
-            elif 'Netzbezug [kW]' in col:
-                mapping[col] = 'act_residual_kw'
-            elif 'Netzeinspeisung [kW]' in col:
-                mapping[col] = 'act_export_kw'
-            elif 'Stromverbrauch [kW]' in col:
-                mapping[col] = 'act_total_demand_kw'
-            elif 'Akkubeladung [kW]' in col:
-                mapping[col] = 'act_battery_inflow_kw'
-            elif 'Akkuentnahme [kW]' in col:
-                mapping[col] = 'act_battery_exflow_kw'
-            elif 'Stromerzeugung [kW]' in col:
-                mapping[col] = 'act_solar_kw'
-            elif 'Akku Spannung [V]' in col:
-                mapping[col] = 'act_battery_voltage'
-            elif 'Akku Stromstärke [A]' in col:
-                mapping[col] = 'act_battery_current'
+            if "Uhrzeit" in col:
+                mapping[col] = "stime"
+            elif "Netzbezug [kW]" in col:
+                mapping[col] = "act_residual_kw"
+            elif "Netzeinspeisung [kW]" in col:
+                mapping[col] = "act_export_kw"
+            elif "Stromverbrauch [kW]" in col:
+                mapping[col] = "act_total_demand_kw"
+            elif "Akkubeladung [kW]" in col:
+                mapping[col] = "act_battery_inflow_kw"
+            elif "Akkuentnahme [kW]" in col:
+                mapping[col] = "act_battery_exflow_kw"
+            elif "Stromerzeugung [kW]" in col:
+                mapping[col] = "act_solar_kw"
+            elif "Akku Spannung [V]" in col:
+                mapping[col] = "act_battery_voltage"
+            elif "Akku Stromstärke [A]" in col:
+                mapping[col] = "act_battery_current"
         return df.rename(columns=mapping)
 
     def _parse_timestamps(self, df: pd.DataFrame) -> tuple:
@@ -109,7 +111,7 @@ class SenecDriver(EnergyDriver):
         """
         print("Loading SENEC home battery data...")
 
-        df = pd.read_csv(csv_file_path, sep=';')
+        df = pd.read_csv(csv_file_path, sep=";")
         df = self._rename_columns(df)
 
         timestamps, self.resolution = self._parse_timestamps(df)

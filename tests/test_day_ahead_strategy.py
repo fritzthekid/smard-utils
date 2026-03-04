@@ -2,10 +2,11 @@
 Tests for DayAheadStrategy - realistic day-ahead price-based BMS strategy.
 """
 
-import pytest
+from datetime import date
+
 import pandas as pd
-import numpy as np
-from datetime import datetime, date
+import pytest
+
 from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
 
 
@@ -20,7 +21,7 @@ def make_price_data(days=3, base_price=0.10):
     Rest: average (100% of base)
     """
     hours = days * 24
-    dates = pd.date_range('2024-01-01', periods=hours, freq='h')
+    dates = pd.date_range("2024-01-01", periods=hours, freq="h")
     prices = []
     for i in range(hours):
         hour = i % 24
@@ -35,7 +36,7 @@ def make_price_data(days=3, base_price=0.10):
         else:
             prices.append(base_price * 1.0)
 
-    return pd.DataFrame({'price_per_kwh': prices}, index=dates)
+    return pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
 
 class TestDayAheadStrategyInit:
@@ -51,11 +52,9 @@ class TestDayAheadStrategyInit:
 
     def test_custom_parameters(self):
         """Test custom parameter values."""
-        strategy = DayAheadStrategy({
-            "discharge_threshold": 1.3,
-            "charge_threshold": 0.7,
-            "control_exflow": 2
-        })
+        strategy = DayAheadStrategy(
+            {"discharge_threshold": 1.3, "charge_threshold": 0.7, "control_exflow": 2}
+        )
 
         assert strategy.discharge_threshold == 1.3
         assert strategy.charge_threshold == 0.7
@@ -80,12 +79,12 @@ class TestDayAheadPlanUpdate:
         strategy.setup_price_array(data, 1.0)
 
         context = {
-            'timestamp': data.index[0],  # 2024-01-01 00:00
-            'index': 0,
-            'current_storage': 500,
-            'capacity': 1000,
-            'price': data['price_per_kwh'].iloc[0],
-            'avg_price': data['price_per_kwh'].mean()
+            "timestamp": data.index[0],  # 2024-01-01 00:00
+            "index": 0,
+            "current_storage": 500,
+            "capacity": 1000,
+            "price": data["price_per_kwh"].iloc[0],
+            "avg_price": data["price_per_kwh"].mean(),
         }
 
         # First call should trigger plan creation
@@ -139,12 +138,12 @@ class TestDayAheadPlanUpdate:
 
         # At 13:00 day 2 (index 37), should update
         context = {
-            'timestamp': data.index[37],  # 2024-01-02 13:00
-            'index': 37,
-            'current_storage': 500,
-            'capacity': 1000,
-            'price': data['price_per_kwh'].iloc[37],
-            'avg_price': data['price_per_kwh'].mean()
+            "timestamp": data.index[37],  # 2024-01-02 13:00
+            "index": 37,
+            "current_storage": 500,
+            "capacity": 1000,
+            "price": data["price_per_kwh"].iloc[37],
+            "avg_price": data["price_per_kwh"].mean(),
         }
 
         strategy.should_discharge(context)
@@ -162,7 +161,7 @@ class TestDayAheadPlanUpdate:
         strategy._update_day_ahead_plan(0)
 
         # Average should be from today's 24 hours only
-        today_prices = data['price_per_kwh'].iloc[:24]
+        today_prices = data["price_per_kwh"].iloc[:24]
         expected_avg = today_prices.mean()
 
         assert strategy.known_avg == pytest.approx(expected_avg, rel=0.01)
@@ -173,10 +172,7 @@ class TestDayAheadScheduling:
 
     def test_discharge_during_expensive_hours(self):
         """Test battery discharges during expensive hours."""
-        strategy = DayAheadStrategy({
-            "discharge_threshold": 1.2,
-            "min_soc": 0.05
-        })
+        strategy = DayAheadStrategy({"discharge_threshold": 1.2, "min_soc": 0.05})
         data = make_price_data(days=2)
         strategy.setup_price_array(data, 1.0)
         strategy._update_day_ahead_plan(0)
@@ -185,22 +181,20 @@ class TestDayAheadScheduling:
         # Price = 0.18, avg ~ 0.10, ratio 1.8 > 1.2 threshold
         for hour in [17, 18, 19, 20]:
             context = {
-                'timestamp': data.index[hour],
-                'index': hour,
-                'current_storage': 800,
-                'capacity': 1000,
-                'price': data['price_per_kwh'].iloc[hour],
-                'avg_price': strategy.known_avg
+                "timestamp": data.index[hour],
+                "index": hour,
+                "current_storage": 800,
+                "capacity": 1000,
+                "price": data["price_per_kwh"].iloc[hour],
+                "avg_price": strategy.known_avg,
             }
-            assert strategy.should_discharge(context) == True, \
-                f"Should discharge at hour {hour} (price={data['price_per_kwh'].iloc[hour]:.3f})"
+            assert (
+                strategy.should_discharge(context) == True
+            ), f"Should discharge at hour {hour} (price={data['price_per_kwh'].iloc[hour]:.3f})"
 
     def test_charge_during_cheap_hours(self):
         """Test battery charges during cheap hours."""
-        strategy = DayAheadStrategy({
-            "charge_threshold": 0.8,
-            "max_soc": 0.95
-        })
+        strategy = DayAheadStrategy({"charge_threshold": 0.8, "max_soc": 0.95})
         data = make_price_data(days=2)
         strategy.setup_price_array(data, 1.0)
         strategy._update_day_ahead_plan(0)
@@ -209,25 +203,25 @@ class TestDayAheadScheduling:
         # Price = 0.06, avg ~ 0.10, ratio 0.6 < 0.8 threshold
         for hour in [0, 1, 2, 3, 4, 5]:
             context = {
-                'timestamp': data.index[hour],
-                'index': hour,
-                'current_storage': 200,
-                'capacity': 1000,
-                'price': data['price_per_kwh'].iloc[hour],
-                'avg_price': strategy.known_avg,
-                'renew': 500,
-                'power_limit': 500,
-                'resolution': 1.0
+                "timestamp": data.index[hour],
+                "index": hour,
+                "current_storage": 200,
+                "capacity": 1000,
+                "price": data["price_per_kwh"].iloc[hour],
+                "avg_price": strategy.known_avg,
+                "renew": 500,
+                "power_limit": 500,
+                "resolution": 1.0,
             }
-            assert strategy.should_charge(context) == True, \
-                f"Should charge at hour {hour} (price={data['price_per_kwh'].iloc[hour]:.3f})"
+            assert (
+                strategy.should_charge(context) == True
+            ), f"Should charge at hour {hour} (price={data['price_per_kwh'].iloc[hour]:.3f})"
 
     def test_no_discharge_during_average_hours(self):
         """Test battery does not discharge during average-priced hours."""
-        strategy = DayAheadStrategy({
-            "discharge_threshold": 1.2,
-            "charge_threshold": 0.8
-        })
+        strategy = DayAheadStrategy(
+            {"discharge_threshold": 1.2, "charge_threshold": 0.8}
+        )
         data = make_price_data(days=2)
         strategy.setup_price_array(data, 1.0)
         strategy._update_day_ahead_plan(0)
@@ -237,12 +231,12 @@ class TestDayAheadScheduling:
         # Strategy allows charging whenever not discharging (SOC below max_soc).
         for hour in [15, 16, 21, 22, 23]:
             context = {
-                'timestamp': data.index[hour],
-                'index': hour,
-                'current_storage': 500,
-                'capacity': 1000,
-                'price': data['price_per_kwh'].iloc[hour],
-                'avg_price': strategy.known_avg
+                "timestamp": data.index[hour],
+                "index": hour,
+                "current_storage": 500,
+                "capacity": 1000,
+                "price": data["price_per_kwh"].iloc[hour],
+                "avg_price": strategy.known_avg,
             }
             assert strategy.should_discharge(context) == False
             assert strategy.should_charge(context) == True  # charges during idle hours
@@ -255,12 +249,12 @@ class TestDayAheadScheduling:
         strategy._update_day_ahead_plan(0)
 
         context = {
-            'timestamp': data.index[18],  # Expensive hour
-            'index': 18,
-            'current_storage': 50,  # 5% SOC (below min_soc=10%)
-            'capacity': 1000,
-            'price': data['price_per_kwh'].iloc[18],
-            'avg_price': strategy.known_avg
+            "timestamp": data.index[18],  # Expensive hour
+            "index": 18,
+            "current_storage": 50,  # 5% SOC (below min_soc=10%)
+            "capacity": 1000,
+            "price": data["price_per_kwh"].iloc[18],
+            "avg_price": strategy.known_avg,
         }
 
         assert strategy.should_discharge(context) == False
@@ -273,12 +267,12 @@ class TestDayAheadScheduling:
         strategy._update_day_ahead_plan(0)
 
         context = {
-            'timestamp': data.index[2],  # Cheap hour
-            'index': 2,
-            'current_storage': 950,  # 95% SOC (above max_soc=90%)
-            'capacity': 1000,
-            'price': data['price_per_kwh'].iloc[2],
-            'avg_price': strategy.known_avg
+            "timestamp": data.index[2],  # Cheap hour
+            "index": 2,
+            "current_storage": 950,  # 95% SOC (above max_soc=90%)
+            "capacity": 1000,
+            "price": data["price_per_kwh"].iloc[2],
+            "avg_price": strategy.known_avg,
         }
 
         assert strategy.should_charge(context) == False
@@ -291,21 +285,21 @@ class TestDayAheadExport:
         """Test export when price is positive."""
         strategy = DayAheadStrategy({"control_exflow": 3})
 
-        context = {'price': 0.10}
+        context = {"price": 0.10}
         assert strategy.should_export(context) == True
 
     def test_no_export_negative_price(self):
         """Test no export when price is negative."""
         strategy = DayAheadStrategy({"control_exflow": 3})
 
-        context = {'price': -0.01}
+        context = {"price": -0.01}
         assert strategy.should_export(context) == False
 
     def test_no_export_control_disabled(self):
         """Test no export when control mode is 1."""
         strategy = DayAheadStrategy({"control_exflow": 1})
 
-        context = {'price': 0.10}
+        context = {"price": 0.10}
         assert strategy.should_export(context) == False
 
 
@@ -317,11 +311,11 @@ class TestDayAheadAmounts:
         strategy = DayAheadStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 1000,
-            'power_limit': 300,
-            'resolution': 1.0,
-            'current_storage': 200,
-            'capacity': 1000
+            "renew": 1000,
+            "power_limit": 300,
+            "resolution": 1.0,
+            "current_storage": 200,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -332,11 +326,11 @@ class TestDayAheadAmounts:
         strategy = DayAheadStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 1000,
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 900,
-            'capacity': 1000
+            "renew": 1000,
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 900,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -347,11 +341,11 @@ class TestDayAheadAmounts:
         strategy = DayAheadStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 100,
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 200,
-            'capacity': 1000
+            "renew": 100,
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 200,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -359,21 +353,18 @@ class TestDayAheadAmounts:
 
     def test_discharge_amount_with_saturation(self):
         """Test discharge amount uses saturation curve."""
-        strategy = DayAheadStrategy({
-            "min_soc": 0.05,
-            "discharge_threshold": 1.2
-        })
+        strategy = DayAheadStrategy({"min_soc": 0.05, "discharge_threshold": 1.2})
         data = make_price_data(days=2)
         strategy.setup_price_array(data, 1.0)
         strategy._update_day_ahead_plan(0)
 
         context = {
-            'timestamp': data.index[18],  # Expensive hour (1.8x base)
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 800,
-            'capacity': 1000,
-            'price': data['price_per_kwh'].iloc[18]
+            "timestamp": data.index[18],  # Expensive hour (1.8x base)
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 800,
+            "capacity": 1000,
+            "price": data["price_per_kwh"].iloc[18],
         }
 
         discharge = strategy.calculate_discharge_amount(context)
@@ -384,24 +375,21 @@ class TestDayAheadAmounts:
 
     def test_discharge_modulated_by_price(self):
         """Test more expensive hours get more aggressive discharge."""
-        strategy = DayAheadStrategy({
-            "min_soc": 0.05,
-            "discharge_threshold": 1.2
-        })
+        strategy = DayAheadStrategy({"min_soc": 0.05, "discharge_threshold": 1.2})
         data = make_price_data(days=2)
         strategy.setup_price_array(data, 1.0)
         strategy._update_day_ahead_plan(0)
 
         base_context = {
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 800,
-            'capacity': 1000
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         # Higher price -> more discharge
-        context_high = {**base_context, 'price': 0.20, 'timestamp': data.index[18]}
-        context_med = {**base_context, 'price': 0.14, 'timestamp': data.index[6]}
+        context_high = {**base_context, "price": 0.20, "timestamp": data.index[18]}
+        context_med = {**base_context, "price": 0.14, "timestamp": data.index[6]}
 
         discharge_high = strategy.calculate_discharge_amount(context_high)
         discharge_med = strategy.calculate_discharge_amount(context_med)

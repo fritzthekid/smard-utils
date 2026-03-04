@@ -28,8 +28,8 @@ class PriceThresholdStrategy(BMSStrategy):
 
     def setup_meanprice(self, data):
         """Calculate mean price for export threshold."""
-        if 'price_per_kwh' in data.columns:
-            self.meanprice = data['price_per_kwh'].mean()
+        if "price_per_kwh" in data.columns:
+            self.meanprice = data["price_per_kwh"].mean()
         else:
             self.meanprice = 0.0
 
@@ -43,8 +43,8 @@ class PriceThresholdStrategy(BMSStrategy):
         Returns:
             True if should charge
         """
-        price = context['price']
-        avg_price = context['avg_price']
+        price = context["price"]
+        avg_price = context["avg_price"]
         return price < self.load_threshold * avg_price
 
     def should_discharge(self, context: dict) -> bool:
@@ -57,8 +57,8 @@ class PriceThresholdStrategy(BMSStrategy):
         Returns:
             True if should discharge
         """
-        price = context['price']
-        avg_price = context['avg_price']
+        price = context["price"]
+        avg_price = context["avg_price"]
         # BioBat uses same load_threshold for both charge and discharge
         return price >= self.load_threshold * abs(avg_price)
 
@@ -88,10 +88,10 @@ class PriceThresholdStrategy(BMSStrategy):
         max_soc = self.basic_data_set.get("max_soc", 0.95)
 
         allowed_energy = min(
-            context['power_limit'] * context['resolution'],
-            (max_soc * context['capacity']) - context['current_storage']
+            context["power_limit"] * context["resolution"],
+            (max_soc * context["capacity"]) - context["current_storage"],
         )
-        return min(context['renew'], allowed_energy)
+        return min(context["renew"], allowed_energy)
 
     def calculate_discharge_amount(self, context: dict) -> float:
         """
@@ -106,7 +106,7 @@ class PriceThresholdStrategy(BMSStrategy):
         min_soc = self.basic_data_set.get("min_soc", 0.05)
 
         allowed_energy = min(
-            context['power_limit'] * context['resolution'],
-            context['current_storage'] - (min_soc * context['capacity'])
+            context["power_limit"] * context["resolution"],
+            context["current_storage"] - (min_soc * context["capacity"]),
         )
         return allowed_energy

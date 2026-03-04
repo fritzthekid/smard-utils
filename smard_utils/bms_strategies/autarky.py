@@ -26,18 +26,18 @@ class AutoarkyStrategy(BMSStrategy):
     """
 
     def should_discharge(self, context: dict) -> bool:
-        deficit = context['demand'] - context['renew']
+        deficit = context["demand"] - context["renew"]
         if deficit <= 0:
             return False
         min_soc = self.basic_data_set.get("min_soc", 0.05)
-        return context['current_storage'] > min_soc * context['capacity']
+        return context["current_storage"] > min_soc * context["capacity"]
 
     def should_charge(self, context: dict) -> bool:
-        surplus = context['renew'] - context['demand']
+        surplus = context["renew"] - context["demand"]
         if surplus <= 0:
             return False
         max_soc = self.basic_data_set.get("max_soc", 0.95)
-        return context['current_storage'] < max_soc * context['capacity']
+        return context["current_storage"] < max_soc * context["capacity"]
 
     def should_export(self, context: dict) -> bool:
         # Always allow physical surplus to flow out (avoids curtailment).
@@ -45,18 +45,18 @@ class AutoarkyStrategy(BMSStrategy):
         return True
 
     def calculate_charge_amount(self, context: dict) -> float:
-        surplus = max(0.0, context['renew'] - context['demand'])
+        surplus = max(0.0, context["renew"] - context["demand"])
         max_soc = self.basic_data_set.get("max_soc", 0.95)
-        room = max_soc * context['capacity'] - context['current_storage']
-        allowed = context['power_limit'] * context['resolution']
+        room = max_soc * context["capacity"] - context["current_storage"]
+        allowed = context["power_limit"] * context["resolution"]
         return min(surplus, room, allowed)
 
     def calculate_discharge_amount(self, context: dict) -> float:
-        deficit = max(0.0, context['demand'] - context['renew'])
+        deficit = max(0.0, context["demand"] - context["renew"])
         min_soc = self.basic_data_set.get("min_soc", 0.05)
-        efficiency_discharge = self.basic_data_set.get('efficiency_discharge', 0.96)
+        efficiency_discharge = self.basic_data_set.get("efficiency_discharge", 0.96)
         available = (
-            context['current_storage'] - min_soc * context['capacity']
+            context["current_storage"] - min_soc * context["capacity"]
         ) * efficiency_discharge
-        allowed = context['power_limit'] * context['resolution']
+        allowed = context["power_limit"] * context["resolution"]
         return min(deficit, available, allowed)

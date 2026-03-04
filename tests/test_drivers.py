@@ -2,14 +2,15 @@
 Tests for driver modules - BiogasDriver, SolarDriver, SenecDriver.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-import tempfile
 import os
+import tempfile
+
+import pandas as pd
+import pytest
+
 from smard_utils.drivers.biogas_driver import BiogasDriver
-from smard_utils.drivers.solar_driver import SolarDriver
 from smard_utils.drivers.senec_driver import SenecDriver
+from smard_utils.drivers.solar_driver import SolarDriver
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ def smard_csv_file():
 01.01.2024;23:00;500;300;400;5000;0;100;800;1200;600;2000;-200;50;50000
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
         f.write(content)
         temp_path = f.name
 
@@ -80,7 +81,7 @@ def senec_csv_file():
 01.01.2024 23:00:00;1.5;0.0;2.0;0.0;0.5;0.0;49.5;-10.0
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
         f.write(content)
         temp_path = f.name
 
@@ -107,16 +108,16 @@ class TestBiogasDriver:
         df = driver.load_data(smard_csv_file)
 
         assert len(df) == 24
-        assert 'my_renew' in df.columns
-        assert 'my_demand' in df.columns
+        assert "my_renew" in df.columns
+        assert "my_demand" in df.columns
         assert driver.resolution == 1.0  # 1 hour resolution
 
         # All my_renew should be constant biogas
-        assert df['my_renew'].iloc[0] == 1000  # 1000 kW * 1 hour
-        assert df['my_renew'].nunique() == 1  # All values the same
+        assert df["my_renew"].iloc[0] == 1000  # 1000 kW * 1 hour
+        assert df["my_renew"].nunique() == 1  # All values the same
 
         # No demand for biogas production
-        assert df['my_demand'].sum() == 0
+        assert df["my_demand"].sum() == 0
 
     def test_biogas_driver_get_timestep(self, smard_csv_file):
         """Test BiogasDriver get_timestep method."""
@@ -142,8 +143,7 @@ class TestSolarDriver:
     def test_solar_driver_initialization(self):
         """Test SolarDriver initializes correctly."""
         driver = SolarDriver(
-            {"solar_max_power": 10000, "wind_nominal_power": 5000},
-            region="_de"
+            {"solar_max_power": 10000, "wind_nominal_power": 5000}, region="_de"
         )
 
         assert driver.basic_data_set["solar_max_power"] == 10000
@@ -152,47 +152,52 @@ class TestSolarDriver:
 
     def test_solar_driver_load_data(self, smard_csv_file):
         """Test SolarDriver loads and scales data correctly."""
-        driver = SolarDriver({
-            "solar_max_power": 10000,  # 10 kW peak
-            "wind_nominal_power": 0,
-            "year_demand": -100000  # 100 MWh/year
-        }, region="_de")
+        driver = SolarDriver(
+            {
+                "solar_max_power": 10000,  # 10 kW peak
+                "wind_nominal_power": 0,
+                "year_demand": -100000,  # 100 MWh/year
+            },
+            region="_de",
+        )
 
         df = driver.load_data(smard_csv_file)
 
         assert len(df) == 24
-        assert 'my_renew' in df.columns
-        assert 'my_demand' in df.columns
+        assert "my_renew" in df.columns
+        assert "my_demand" in df.columns
         assert driver.resolution == 1.0
 
         # Check proportional scaling
         # Solar max in data: ~5800 MWh, scaled to 10 kW = 10/5800 * solar values
-        assert df['my_renew'].max() > 0
-        assert df['my_renew'].iloc[0] == 0  # No solar at midnight
-        assert df['my_renew'].iloc[13] > df['my_renew'].iloc[0]  # Solar peak at 13:00
+        assert df["my_renew"].max() > 0
+        assert df["my_renew"].iloc[0] == 0  # No solar at midnight
+        assert df["my_renew"].iloc[13] > df["my_renew"].iloc[0]  # Solar peak at 13:00
 
     def test_solar_driver_demand_scaling(self, smard_csv_file):
         """Test SolarDriver scales demand correctly."""
-        driver = SolarDriver({
-            "solar_max_power": 10000,
-            "wind_nominal_power": 0,
-            "year_demand": -100000  # kWh
-        }, region="_de")
+        driver = SolarDriver(
+            {
+                "solar_max_power": 10000,
+                "wind_nominal_power": 0,
+                "year_demand": -100000,  # kWh
+            },
+            region="_de",
+        )
 
         df = driver.load_data(smard_csv_file)
 
         # Demand should be scaled proportionally
-        assert df['my_demand'].sum() < 0  # Negative demand
-        total_demand_kwh = abs(df['my_demand'].sum())
+        assert df["my_demand"].sum() < 0  # Negative demand
+        total_demand_kwh = abs(df["my_demand"].sum())
         assert total_demand_kwh > 0
 
     def test_solar_driver_get_timestep(self, smard_csv_file):
         """Test SolarDriver get_timestep method."""
-        driver = SolarDriver({
-            "solar_max_power": 10000,
-            "wind_nominal_power": 0,
-            "year_demand": -100000
-        }, region="_de")
+        driver = SolarDriver(
+            {"solar_max_power": 10000, "wind_nominal_power": 0, "year_demand": -100000},
+            region="_de",
+        )
 
         driver.load_data(smard_csv_file)
 
@@ -217,17 +222,17 @@ class TestSenecDriver:
         df = driver.load_data(senec_csv_file)
 
         assert len(df) == 21
-        assert 'my_renew' in df.columns
-        assert 'my_demand' in df.columns
-        assert 'solar' in df.columns
+        assert "my_renew" in df.columns
+        assert "my_demand" in df.columns
+        assert "solar" in df.columns
         assert driver.resolution > 0
 
         # Check pass-through values
-        assert df['my_renew'].iloc[0] == 0  # No solar at midnight
-        assert df['my_renew'].iloc[12] > 0  # Solar at noon (13:00)
+        assert df["my_renew"].iloc[0] == 0  # No solar at midnight
+        assert df["my_renew"].iloc[12] > 0  # Solar at noon (13:00)
 
         # Demand should be positive
-        assert df['my_demand'].iloc[0] > 0
+        assert df["my_demand"].iloc[0] > 0
 
     def test_senec_driver_variable_resolution(self, senec_csv_file):
         """Test SenecDriver calculates variable resolution."""
@@ -246,13 +251,13 @@ class TestSenecDriver:
         df = driver.load_data(senec_csv_file)
 
         # Should preserve actual battery measurements
-        assert 'act_battery_inflow' in df.columns
-        assert 'act_battery_exflow' in df.columns
+        assert "act_battery_inflow" in df.columns
+        assert "act_battery_exflow" in df.columns
 
         # Charging should happen during solar hours
-        assert df['act_battery_inflow'].sum() > 0
+        assert df["act_battery_inflow"].sum() > 0
         # Discharging should happen during evening/night
-        assert df['act_battery_exflow'].sum() > 0
+        assert df["act_battery_exflow"].sum() > 0
 
     def test_senec_driver_get_timestep(self, senec_csv_file):
         """Test SenecDriver get_timestep method."""

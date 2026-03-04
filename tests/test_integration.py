@@ -4,26 +4,27 @@ Integration tests for the complete battery simulation system.
 Tests end-to-end workflows combining drivers, strategies, BMS, battery, and analytics.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-import tempfile
 import os
-from smard_utils.core.driver import EnergyDriver
+import tempfile
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
+from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
+from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
-from smard_utils.core.analytics import BatteryAnalytics
 from smard_utils.drivers.biogas_driver import BiogasDriver
 from smard_utils.drivers.solar_driver import SolarDriver
-from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
-from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
 
 
 @pytest.fixture
 def smard_csv_file():
     """Create a comprehensive SMARD CSV file for integration testing."""
     # 7 days of data with realistic patterns
-    dates = pd.date_range('2024-01-01', periods=168, freq='h')
+    dates = pd.date_range("2024-01-01", periods=168, freq="h")
 
     biomass = np.ones(168) * 500
     hydro = np.ones(168) * 300
@@ -43,7 +44,9 @@ def smard_csv_file():
     demand = np.random.uniform(45000, 55000, 168)
 
     # Create CSV content
-    lines = ["Datum;Uhrzeit;Biomasse [MWh] Originalauflösungen;Wasserkraft [MWh] Originalauflösungen;Wind Offshore [MWh] Originalauflösungen;Wind Onshore [MWh] Originalauflösungen;Photovoltaik [MWh] Originalauflösungen;Sonstige Erneuerbare [MWh] Originalauflösungen;Kernenergie [MWh] Originalauflösungen;Braunkohle [MWh] Originalauflösungen;Steinkohle [MWh] Originalauflösungen;Erdgas [MWh] Originalauflösungen;Pumpspeicher [MWh] Originalauflösungen;Sonstige Konventionelle [MWh] Originalauflösungen;Gesamtverbrauch [MWh] Originalauflösungen"]
+    lines = [
+        "Datum;Uhrzeit;Biomasse [MWh] Originalauflösungen;Wasserkraft [MWh] Originalauflösungen;Wind Offshore [MWh] Originalauflösungen;Wind Onshore [MWh] Originalauflösungen;Photovoltaik [MWh] Originalauflösungen;Sonstige Erneuerbare [MWh] Originalauflösungen;Kernenergie [MWh] Originalauflösungen;Braunkohle [MWh] Originalauflösungen;Steinkohle [MWh] Originalauflösungen;Erdgas [MWh] Originalauflösungen;Pumpspeicher [MWh] Originalauflösungen;Sonstige Konventionelle [MWh] Originalauflösungen;Gesamtverbrauch [MWh] Originalauflösungen"
+    ]
 
     for i in range(168):
         dt = dates[i]
@@ -52,7 +55,7 @@ def smard_csv_file():
 
     content = "\n".join(lines)
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
         f.write(content)
         temp_path = f.name
 
@@ -65,7 +68,7 @@ def smard_csv_file():
 @pytest.fixture
 def price_csv_file():
     """Create a price CSV file for integration testing."""
-    dates = pd.date_range('2024-01-01', periods=8760, freq='h')
+    dates = pd.date_range("2024-01-01", periods=8760, freq="h")
 
     # Realistic price pattern: low at night, high during day
     prices = []
@@ -83,12 +86,11 @@ def price_csv_file():
             # Off-peak
             prices.append(base_price + np.random.uniform(-5, 0))
 
-    df = pd.DataFrame({
-        'time': [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates],
-        'price': prices
-    })
+    df = pd.DataFrame(
+        {"time": [d.strftime("%Y-%m-%d %H:%M:%S") for d in dates], "price": prices}
+    )
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
         df.to_csv(f.name, index=False)
         temp_path = f.name
 
@@ -108,7 +110,7 @@ class TestBiogasSystemIntegration:
             "load_threshold": 1.0,
             "fix_costs_per_kwh": 11,
             "marketing_costs": -0.003,
-            "fix_contract": True  # Use fixed price for testing
+            "fix_contract": True,  # Use fixed price for testing
         }
 
         # Initialize driver
@@ -116,7 +118,7 @@ class TestBiogasSystemIntegration:
         driver.load_data(smard_csv_file)
 
         assert len(driver) == 168
-        assert driver.data['my_renew'].iloc[0] == 1000  # Constant biogas
+        assert driver.data["my_renew"].iloc[0] == 1000  # Constant biogas
 
         # Initialize strategy
         strategy = PriceThresholdStrategy(basic_data_set)
@@ -136,8 +138,8 @@ class TestBiogasSystemIntegration:
         # Run simulation
         results = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             step_result = bms.step(i, price, avg_price)
             results.append(step_result)
 
@@ -145,19 +147,24 @@ class TestBiogasSystemIntegration:
         result = analytics.add_simulation_result(5000, 2500, bms, results)
 
         # Verify results
-        assert result['capacity_kwh'] == 5000
-        assert result['power_kw'] == 2500
-        assert result['export_kwh'] > 0  # Should export energy
-        assert result['revenue_eur'] > 0  # Should generate revenue
+        assert result["capacity_kwh"] == 5000
+        assert result["power_kw"] == 2500
+        assert result["export_kwh"] > 0  # Should export energy
+        assert result["revenue_eur"] > 0  # Should generate revenue
 
         # Energy conservation check
         initial_storage = 0.5 * 5000  # Battery default: 50% SOC
-        total_input = driver.data['my_renew'].sum()
-        total_export = result['export_kwh']
-        total_loss = result['loss_kwh']
+        total_input = driver.data["my_renew"].sum()
+        total_export = result["export_kwh"]
+        total_loss = result["loss_kwh"]
 
         # All energy accounted for (no demand in biogas, battery initial energy included)
-        balance = (total_input + initial_storage) - total_export - battery.current_storage - total_loss
+        balance = (
+            (total_input + initial_storage)
+            - total_export
+            - battery.current_storage
+            - total_loss
+        )
         assert abs(balance) < total_input * 0.01
 
     def test_biogas_multiple_capacities(self, smard_csv_file):
@@ -166,7 +173,7 @@ class TestBiogasSystemIntegration:
             "constant_biogas_kw": 1000,
             "load_threshold": 1.0,
             "fix_costs_per_kwh": 11,
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         driver = BiogasDriver(basic_data_set)
@@ -188,8 +195,8 @@ class TestBiogasSystemIntegration:
 
             results = []
             for i in range(len(driver)):
-                price = driver.data['price_per_kwh'].iloc[i]
-                avg_price = driver.data['avrgprice'].iloc[i]
+                price = driver.data["price_per_kwh"].iloc[i]
+                avg_price = driver.data["avrgprice"].iloc[i]
                 results.append(bms.step(i, price, avg_price))
 
             analytics.add_simulation_result(capacity_kwh, power_kw, bms, results)
@@ -198,7 +205,7 @@ class TestBiogasSystemIntegration:
 
         assert len(df) == 3
         # Larger batteries should generally have more revenue potential
-        assert df['capacity_kwh'].is_monotonic_increasing
+        assert df["capacity_kwh"].is_monotonic_increasing
 
 
 class TestSolarSystemIntegration:
@@ -213,7 +220,7 @@ class TestSolarSystemIntegration:
             "fix_costs_per_kwh": 11,
             "marketing_costs": -0.003,
             "control_exflow": 3,
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         # Initialize driver
@@ -221,8 +228,8 @@ class TestSolarSystemIntegration:
         driver.load_data(smard_csv_file)
 
         assert len(driver) == 168
-        assert driver.data['my_renew'].max() > 0  # Should have solar generation
-        assert driver.data['my_demand'].sum() < 0  # Should have demand
+        assert driver.data["my_renew"].max() > 0  # Should have solar generation
+        assert driver.data["my_demand"].sum() < 0  # Should have demand
 
         # Initialize strategy
         strategy = DynamicDischargeStrategy(basic_data_set)
@@ -242,8 +249,8 @@ class TestSolarSystemIntegration:
         # Run simulation
         results = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             step_result = bms.step(i, price, avg_price)
             results.append(step_result)
 
@@ -251,13 +258,13 @@ class TestSolarSystemIntegration:
         result = analytics.add_simulation_result(10000, 5000, bms, results)
 
         # Verify results
-        assert result['capacity_kwh'] == 10000
-        assert result['power_kw'] == 5000
-        assert result['residual_kwh'] >= 0  # Grid consumption
-        assert result['export_kwh'] >= 0  # Grid export
+        assert result["capacity_kwh"] == 10000
+        assert result["power_kw"] == 5000
+        assert result["residual_kwh"] >= 0  # Grid consumption
+        assert result["export_kwh"] >= 0  # Grid export
 
         # Autarky should be between 0 and 1
-        assert 0 <= result['autarky_rate'] <= 1
+        assert 0 <= result["autarky_rate"] <= 1
 
     def test_solar_price_optimization(self, smard_csv_file):
         """Test solar system optimizes for price differences."""
@@ -266,7 +273,7 @@ class TestSolarSystemIntegration:
             "wind_nominal_power": 0,
             "year_demand": -50000,
             "fix_costs_per_kwh": 11,
-            "fix_contract": False  # Use variable pricing
+            "fix_contract": False,  # Use variable pricing
         }
 
         driver = SolarDriver(basic_data_set, region="_de")
@@ -283,8 +290,8 @@ class TestSolarSystemIntegration:
             else:
                 prices.append(0.12)
 
-        driver._data['price_per_kwh'] = prices
-        driver._data['avrgprice'] = 0.12
+        driver._data["price_per_kwh"] = prices
+        driver._data["avrgprice"] = 0.12
 
         strategy = DynamicDischargeStrategy(basic_data_set)
         battery = Battery(basic_data_set, capacity_kwh=10000, p_max_kw=5000)
@@ -296,14 +303,14 @@ class TestSolarSystemIntegration:
         # Run simulation
         results = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             results.append(bms.step(i, price, avg_price))
 
         result = analytics.add_simulation_result(10000, 5000, bms, results)
 
         # Should generate positive revenue from arbitrage
-        assert result['revenue_eur'] > 0
+        assert result["revenue_eur"] > 0
 
 
 class TestEnergyConservation:
@@ -314,7 +321,7 @@ class TestEnergyConservation:
         basic_data_set = {
             "constant_biogas_kw": 1000,
             "load_threshold": 1.0,
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         driver = BiogasDriver(basic_data_set)
@@ -330,21 +337,23 @@ class TestEnergyConservation:
 
         results = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             results.append(bms.step(i, price, avg_price))
 
         result = analytics.add_simulation_result(5000, 2500, bms, results)
 
         # Energy balance: input + initial_storage = export + final_storage + losses
         initial_storage = 0.5 * 5000  # Battery default: 50% SOC
-        total_input = driver.data['my_renew'].sum()
-        total_export = result['export_kwh']
+        total_input = driver.data["my_renew"].sum()
+        total_export = result["export_kwh"]
         total_stored = battery.current_storage  # Final storage
-        total_loss = result['loss_kwh']
+        total_loss = result["loss_kwh"]
 
         # Allow 1% error for numerical precision (self-discharge not tracked in loss)
-        balance = (total_input + initial_storage) - total_export - total_stored - total_loss
+        balance = (
+            (total_input + initial_storage) - total_export - total_stored - total_loss
+        )
         assert abs(balance) < total_input * 0.01
 
     def test_solar_energy_balance(self, smard_csv_file):
@@ -353,7 +362,7 @@ class TestEnergyConservation:
             "solar_max_power": 10000,
             "wind_nominal_power": 0,
             "year_demand": -100000,
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         driver = SolarDriver(basic_data_set, region="_de")
@@ -369,19 +378,19 @@ class TestEnergyConservation:
 
         results = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             results.append(bms.step(i, price, avg_price))
 
         result = analytics.add_simulation_result(10000, 5000, bms, results)
 
         # Energy balance: renew + residual = demand + export + stored + losses
-        total_renew = driver.data['my_renew'].sum()
-        total_demand = abs(driver.data['my_demand'].sum())
-        total_residual = result['residual_kwh']
-        total_export = result['export_kwh']
+        total_renew = driver.data["my_renew"].sum()
+        total_demand = abs(driver.data["my_demand"].sum())
+        total_residual = result["residual_kwh"]
+        total_export = result["export_kwh"]
         total_stored = battery.current_storage
-        total_loss = result['loss_kwh']
+        total_loss = result["loss_kwh"]
 
         # Input side: renewable + grid import
         input_energy = total_renew + total_residual
@@ -389,7 +398,9 @@ class TestEnergyConservation:
         output_energy = total_demand + total_export + total_stored + total_loss
 
         # Allow 1% error
-        assert abs(input_energy - output_energy) < max(input_energy, output_energy) * 0.01
+        assert (
+            abs(input_energy - output_energy) < max(input_energy, output_energy) * 0.01
+        )
 
 
 class TestBatteryOperatingLimits:
@@ -401,7 +412,7 @@ class TestBatteryOperatingLimits:
             "constant_biogas_kw": 1000,
             "min_soc": 0.1,
             "max_soc": 0.9,
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         driver = BiogasDriver(basic_data_set)
@@ -417,8 +428,8 @@ class TestBatteryOperatingLimits:
 
         soc_values = []
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             bms.step(i, price, avg_price)
             soc_values.append(battery.soc())
 
@@ -429,14 +440,16 @@ class TestBatteryOperatingLimits:
         """Test battery respects power limits."""
         basic_data_set = {
             "constant_biogas_kw": 2000,  # High generation
-            "fix_contract": True
+            "fix_contract": True,
         }
 
         driver = BiogasDriver(basic_data_set)
         driver.load_data(smard_csv_file)
 
         strategy = PriceThresholdStrategy(basic_data_set)
-        battery = Battery(basic_data_set, capacity_kwh=10000, p_max_kw=500)  # Low power limit
+        battery = Battery(
+            basic_data_set, capacity_kwh=10000, p_max_kw=500
+        )  # Low power limit
         bms = BatteryManagementSystem(strategy, battery, driver)
         bms.initialize()
 
@@ -444,10 +457,10 @@ class TestBatteryOperatingLimits:
         analytics.prepare_prices()
 
         for i in range(len(driver)):
-            price = driver.data['price_per_kwh'].iloc[i]
-            avg_price = driver.data['avrgprice'].iloc[i]
+            price = driver.data["price_per_kwh"].iloc[i]
+            avg_price = driver.data["avrgprice"].iloc[i]
             result = bms.step(i, price, avg_price)
 
             # Charge/discharge should not exceed power limit * resolution
-            assert result['stored_kwh'] <= battery.p_max_kw * driver.resolution + 0.1
-            assert result['net_discharge'] <= battery.p_max_kw * driver.resolution + 0.1
+            assert result["stored_kwh"] <= battery.p_max_kw * driver.resolution + 0.1
+            assert result["net_discharge"] <= battery.p_max_kw * driver.resolution + 0.1

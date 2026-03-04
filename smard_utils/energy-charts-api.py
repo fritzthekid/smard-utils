@@ -1,6 +1,6 @@
-import requests
 import pandas as pd
-from datetime import datetime
+import requests
+
 
 def get_day_ahead_prices(year, month=None):
     """
@@ -13,23 +13,22 @@ def get_day_ahead_prices(year, month=None):
     else:
         start = f"{year}-01-01T00:00"
         end = f"{year}-12-31T23:59"
-    
+
     url = "https://api.energy-charts.info/price"
-    params = {
-        "bzn": "DE-LU",
-        "start": start,
-        "end": end
-    }
-    
+    params = {"bzn": "DE-LU", "start": start, "end": end}
+
     response = requests.get(url, params=params)
     data = response.json()
-    
-    df = pd.DataFrame({
-        'timestamp': pd.to_datetime(data['unix_seconds'], unit='s'),
-        'price_eur_mwh': data['price']
-    })
-    
+
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(data["unix_seconds"], unit="s"),
+            "price_eur_mwh": data["price"],
+        }
+    )
+
     return df
+
 
 # Beispiel: 2020 + 2024
 df_2020 = get_day_ahead_prices(2020)

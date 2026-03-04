@@ -10,6 +10,7 @@ Price data source: netztransparenz.de (Spotmarktpreis nach §3 Nr. 42a EEG)
 
 import numpy as np
 import pandas as pd
+
 from smard_utils.core.bms import BMSStrategy
 
 
@@ -129,12 +130,9 @@ class DayAheadStrategy(BMSStrategy):
 
         if current_hour >= 13:
             # After 13:00: today's remaining hours + tomorrow's full day
-            known_prices = (
-                self._collect_prices_from_hour(current_date, current_hour)
-                + self._collect_prices_for_date(
-                    current_date + pd.Timedelta(days=1)
-                )
-            )
+            known_prices = self._collect_prices_from_hour(
+                current_date, current_hour
+            ) + self._collect_prices_for_date(current_date + pd.Timedelta(days=1))
             self.known_until_date = current_date + pd.Timedelta(days=1)
         else:
             # Before 13:00: only today's prices (received yesterday at 13:00)
@@ -153,8 +151,9 @@ class DayAheadStrategy(BMSStrategy):
         if self.data is None:
             return None
         start_time = self.data.index[0]
-        target_time = pd.Timestamp(year=date.year, month=date.month,
-                                    day=date.day, hour=hour)
+        target_time = pd.Timestamp(
+            year=date.year, month=date.month, day=date.day, hour=hour
+        )
         hours_diff = (target_time - start_time).total_seconds() / 3600
         idx = int(round(hours_diff / self.dt_h))
         return idx if 0 <= idx < len(self.data) else None
@@ -173,8 +172,11 @@ class DayAheadStrategy(BMSStrategy):
             self._update_day_ahead_plan(context["index"])
             return
 
-        if (timestamp.hour == 13 and timestamp.minute == 0
-                and self.last_plan_day != current_date):
+        if (
+            timestamp.hour == 13
+            and timestamp.minute == 0
+            and self.last_plan_day != current_date
+        ):
             self._update_day_ahead_plan(context["index"])
             return
 
@@ -218,15 +220,20 @@ class DayAheadStrategy(BMSStrategy):
         efficiency_discharge = self.basic_data_set.get("efficiency_discharge", 0.96)
         allowed_energy = min(
             context["power_limit"] * context["resolution"],
-            (context["current_storage"] - min_soc * context["capacity"]) * efficiency_discharge,
+            (context["current_storage"] - min_soc * context["capacity"])
+            * efficiency_discharge,
         )
         price = context["price"]
         if self.known_avg > 0:
             price_ratio = price / self.known_avg
-            intensity = min(1.0, max(0.0,
-                (price_ratio - self.discharge_threshold) /
-                (2.0 - self.discharge_threshold)
-            ))
+            intensity = min(
+                1.0,
+                max(
+                    0.0,
+                    (price_ratio - self.discharge_threshold)
+                    / (2.0 - self.discharge_threshold),
+                ),
+            )
             factor = 1.0 - (1.0 - intensity) ** 3
         else:
             factor = 1.0

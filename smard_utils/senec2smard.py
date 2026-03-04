@@ -17,13 +17,12 @@ import argparse
 import os
 import sys
 
-import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
+
 
 def _parse_timestamp_col(df: pd.DataFrame) -> pd.Series:
     """Find and parse the SENEC 'Uhrzeit' timestamp column."""
@@ -93,6 +92,7 @@ def load_senec(csv_file_path: str) -> pd.DataFrame:
 # Resampling
 # ---------------------------------------------------------------------------
 
+
 def resample_to_5min(df: pd.DataFrame) -> pd.DataFrame:
     """
     Resample irregular SENEC data to a regular 5-minute grid.
@@ -126,6 +126,7 @@ def resample_to_5min(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
+
 
 def write_smard(df: pd.DataFrame, output_path: str) -> None:
     """
@@ -167,6 +168,7 @@ def write_smard(df: pd.DataFrame, output_path: str) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="senec2smardformat",
@@ -177,13 +179,15 @@ def main(argv=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         required=True,
         metavar="FILE",
         help="Input SENEC CSV file (e.g. 2023-combine.csv)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         required=True,
         metavar="FILE",
         help="Output SMARD-format CSV file",
@@ -217,8 +221,10 @@ def main(argv=None):
     print()
     print("Use the output file with community or solbatsys:")
     print(f"  --solar-peak  {peak_solar_kw:.1f}")
-    print(f"  --year-demand {total_demand_kwh:.0f}  "
-          f"({'full year' if abs(scale - 1) < 0.05 else f'partial year, ~{total_demand_kwh * scale:.0f} annualised'})")
+    print(
+        f"  --year-demand {total_demand_kwh:.0f}  "
+        f"({'full year' if abs(scale - 1) < 0.05 else f'partial year, ~{total_demand_kwh * scale:.0f} annualised'})"
+    )
     print(f"  (solar yield: {total_solar_kwh:.0f} kWh over {days} days)")
 
 

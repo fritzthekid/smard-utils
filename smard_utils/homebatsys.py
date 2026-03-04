@@ -26,26 +26,31 @@ import os
 
 import pandas as pd
 
+from smard_utils.bms_strategies.registry import get_strategy
+from smard_utils.core.base_sys import BaseAnalysisSys
 from smard_utils.core.battery import Battery
 from smard_utils.core.bms import BatteryManagementSystem
 from smard_utils.drivers.home_driver import HomeDriver
-from smard_utils.bms_strategies.registry import get_strategy
-from smard_utils.core.base_sys import BaseAnalysisSys
 from smard_utils.utils.reporter import ResultsReporter
 
-
-euro_sign = "\N{euro sign}"
+euro_sign = "\N{EURO SIGN}"
 
 
 # ---------------------------------------------------------------------------
 # Main application class
 # ---------------------------------------------------------------------------
 
+
 class HomeBatSys(BaseAnalysisSys):
     """Home storage system – autarky optimisation with fixed electricity price."""
 
-    def __init__(self, csv_file_path: str, basic_data_set: dict = None,
-                 driver=None, strategy=None):
+    def __init__(
+        self,
+        csv_file_path: str,
+        basic_data_set: dict = None,
+        driver=None,
+        strategy=None,
+    ):
         """
         Initialise home battery analysis system.
 
@@ -93,7 +98,7 @@ class HomeBatSys(BaseAnalysisSys):
         bms = BatteryManagementSystem(self.strategy, battery, self.driver)
         bms.initialize()
 
-        fix_price = self.basic_data_set.get('fix_price', 0.28)
+        fix_price = self.basic_data_set.get("fix_price", 0.28)
 
         step_results = []
         for i in range(len(self.driver)):
@@ -101,25 +106,25 @@ class HomeBatSys(BaseAnalysisSys):
 
         df = pd.DataFrame(step_results)
 
-        total_grid_import = df['residual_kwh'].sum()
-        total_export = df['export_kwh'].sum()
-        total_discharge = df['net_discharge'].sum()
+        total_grid_import = df["residual_kwh"].sum()
+        total_export = df["export_kwh"].sum()
+        total_discharge = df["net_discharge"].sum()
 
-        total_solar = self.data['my_renew'].sum()
-        total_demand = self.data['my_demand'].sum()
+        total_solar = self.data["my_renew"].sum()
+        total_demand = self.data["my_demand"].sum()
 
         autarky = 1.0 - total_grid_import / max(total_demand, 1e-10)
         selfcons = 1.0 - total_export / max(total_solar, 1e-10)
         equiv_cycles = total_discharge / max(capacity_kwh, 1e-10)
 
         return {
-            'capacity_kwh': capacity_kwh,
-            'power_kw': power_kw,
-            'grid_import_kwh': total_grid_import,
-            'export_kwh': total_export,
-            'autarky': autarky,
-            'selfcons': selfcons,
-            'equiv_cycles': equiv_cycles,
+            "capacity_kwh": capacity_kwh,
+            "power_kw": power_kw,
+            "grid_import_kwh": total_grid_import,
+            "export_kwh": total_export,
+            "autarky": autarky,
+            "selfcons": selfcons,
+            "equiv_cycles": equiv_cycles,
         }
 
     # ------------------------------------------------------------------
@@ -150,12 +155,14 @@ class HomeBatSys(BaseAnalysisSys):
             results = list(executor.map(self._run_one, full_cap, full_pwr))
 
         # Store results for webapp / programmatic access
-        _fix = self.basic_data_set.get('fix_price', 0.28)
-        _fin = self.basic_data_set.get('feed_in_price', 0.0)
-        _g0 = results[0]['grid_import_kwh']
-        _e0 = results[0]['export_kwh']
+        _fix = self.basic_data_set.get("fix_price", 0.28)
+        _fin = self.basic_data_set.get("feed_in_price", 0.0)
+        _g0 = results[0]["grid_import_kwh"]
+        _e0 = results[0]["export_kwh"]
         for r in results:
-            r['savings_eur'] = (_g0 - r['grid_import_kwh']) * _fix + (r['export_kwh'] - _e0) * _fin
+            r["savings_eur"] = (_g0 - r["grid_import_kwh"]) * _fix + (
+                r["export_kwh"] - _e0
+            ) * _fin
         self.results_df = pd.DataFrame(results)
         self._print_results(results)
 
@@ -168,10 +175,10 @@ class HomeBatSys(BaseAnalysisSys):
         reporter = ResultsReporter()
         reporter.report_home(
             results=results,
-            fix_price=self.basic_data_set.get('fix_price', 0.28),
-            feed_in_price=self.basic_data_set.get('feed_in_price', 0.0),
-            total_solar=self.data['my_renew'].sum(),
-            total_demand=self.data['my_demand'].sum(),
+            fix_price=self.basic_data_set.get("fix_price", 0.28),
+            feed_in_price=self.basic_data_set.get("feed_in_price", 0.0),
+            total_solar=self.data["my_renew"].sum(),
+            total_demand=self.data["my_demand"].sum(),
         )
 
 
@@ -180,14 +187,15 @@ class HomeBatSys(BaseAnalysisSys):
 # ---------------------------------------------------------------------------
 
 basic_data_set = {
-    "fix_price": 0.28,        # €/kWh grid electricity (all-in incl. taxes)
-    "feed_in_price": 0.0,     # €/kWh feed-in tariff (0 = no payment)
+    "fix_price": 0.28,  # €/kWh grid electricity (all-in incl. taxes)
+    "feed_in_price": 0.0,  # €/kWh feed-in tariff (0 = no payment)
 }
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(argv=None):
     """Main function."""
@@ -209,7 +217,8 @@ examples:
     )
 
     parser.add_argument(
-        "-d", "--data",
+        "-d",
+        "--data",
         required=True,
         metavar="FILE",
         help="Path to SMARD-format household CSV",
@@ -245,13 +254,15 @@ examples:
         help="Battery power list in kW (default: 3.5 7 8.5 10)",
     )
     parser.add_argument(
-        "-s", "--strategy",
+        "-s",
+        "--strategy",
         choices=["autarky"],
         default="autarky",
         help="BMS strategy (only 'autarky' is supported for home storage)",
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         default=None,
         metavar="FILE",
         help="Path to JSON config file (auto-detect basic_data_set.conf in cwd)",
@@ -268,8 +279,8 @@ examples:
         basic_data_set["feed_in_price"] = args.feed_in
 
     # Capacity / power lists
-    capacity_list = args.capacity   # kWh, None → use defaults
-    power_list = args.power         # kW,  None → use defaults
+    capacity_list = args.capacity  # kWh, None → use defaults
+    power_list = args.power  # kW,  None → use defaults
 
     if (capacity_list is None) != (power_list is None):
         parser.error("--capacity and --power must be given together")

@@ -12,8 +12,9 @@ time, sdate, stimestart, zone_start, stimeend, zone_end, price
 """
 
 import os
-import pandas as pd
 from datetime import datetime
+
+import pandas as pd
 
 
 def prepare_costs(year: int = 2024, raw_dir: str = None, output_dir: str = None):
@@ -39,23 +40,23 @@ def prepare_costs(year: int = 2024, raw_dir: str = None, output_dir: str = None)
         print(f"Raw price file not found: {raw_file}")
         return None
 
-    df = pd.read_csv(raw_file, sep=';', decimal=',')
+    df = pd.read_csv(raw_file, sep=";", decimal=",")
 
     # Map German column names to English
     column_mapping = {}
     for col in df.columns:
-        if 'Datum' in col:
-            column_mapping[col] = 'sdate'
-        elif 'von' == col:
-            column_mapping[col] = 'stimestart'
-        elif 'bis' == col:
-            column_mapping[col] = 'stimeend'
-        elif 'Zeitzone von' == col:
-            column_mapping[col] = 'zone_start'
-        elif 'Zeitzone bis' == col:
-            column_mapping[col] = 'zone_end'
-        elif 'Spotmarktpreis' in col:
-            column_mapping[col] = 'price'
+        if "Datum" in col:
+            column_mapping[col] = "sdate"
+        elif "von" == col:
+            column_mapping[col] = "stimestart"
+        elif "bis" == col:
+            column_mapping[col] = "stimeend"
+        elif "Zeitzone von" == col:
+            column_mapping[col] = "zone_start"
+        elif "Zeitzone bis" == col:
+            column_mapping[col] = "zone_end"
+        elif "Spotmarktpreis" in col:
+            column_mapping[col] = "price"
 
     df = df.rename(columns=column_mapping)
 
@@ -78,5 +79,6 @@ def prepare_costs(year: int = 2024, raw_dir: str = None, output_dir: str = None)
 
 if __name__ == "__main__":
     import sys
+
     year = int(sys.argv[1]) if len(sys.argv) > 1 else 2024
     prepare_costs(year)

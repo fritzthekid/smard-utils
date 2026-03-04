@@ -5,6 +5,7 @@ Orchestrates battery control using pluggable strategies for profit optimization.
 """
 
 from abc import ABC, abstractmethod
+
 import numpy as np
 
 
@@ -32,7 +33,6 @@ class BMSStrategy(ABC):
         Returns:
             True if battery should charge
         """
-        pass
 
     @abstractmethod
     def should_discharge(self, context: dict) -> bool:
@@ -45,7 +45,6 @@ class BMSStrategy(ABC):
         Returns:
             True if battery should discharge
         """
-        pass
 
     @abstractmethod
     def should_export(self, context: dict) -> bool:
@@ -58,7 +57,6 @@ class BMSStrategy(ABC):
         Returns:
             True if should export excess
         """
-        pass
 
     @abstractmethod
     def calculate_charge_amount(self, context: dict) -> float:
@@ -71,7 +69,6 @@ class BMSStrategy(ABC):
         Returns:
             Energy to charge (kWh)
         """
-        pass
 
     @abstractmethod
     def calculate_discharge_amount(self, context: dict) -> float:
@@ -84,7 +81,6 @@ class BMSStrategy(ABC):
         Returns:
             Energy to discharge (kWh)
         """
-        pass
 
 
 class BatteryManagementSystem:
@@ -106,10 +102,10 @@ class BatteryManagementSystem:
 
     def initialize(self):
         """Setup before simulation (called once before loop)."""
-        if hasattr(self.strategy, 'setup_price_array'):
+        if hasattr(self.strategy, "setup_price_array"):
             self.strategy.setup_price_array(self.driver.data, self.driver.resolution)
         # Initialize price array with first 24 hours (for DynamicDischargeStrategy)
-        if hasattr(self.strategy, '_update_price_array'):
+        if hasattr(self.strategy, "_update_price_array"):
             self.strategy._update_price_array(0)
 
     def step(self, index: int, price: float, avg_price: float) -> dict:
@@ -129,17 +125,17 @@ class BatteryManagementSystem:
 
         # Build context for strategy
         context = {
-            'index': index,
-            'renew': renew,
-            'demand': demand,
-            'price': price,
-            'avg_price': avg_price,
-            'current_storage': self.battery.current_storage,
-            'capacity': self.battery.capacity_kwh,
-            'soc': self.battery.soc(),
-            'timestamp': self.driver.data.index[index],
-            'resolution': self.driver.resolution,
-            'power_limit': self.battery.p_max_kw
+            "index": index,
+            "renew": renew,
+            "demand": demand,
+            "price": price,
+            "avg_price": avg_price,
+            "current_storage": self.battery.current_storage,
+            "capacity": self.battery.capacity_kwh,
+            "soc": self.battery.soc(),
+            "timestamp": self.driver.data.index[index],
+            "resolution": self.driver.resolution,
+            "power_limit": self.battery.p_max_kw,
         }
 
         # Strategy decides actions using if-elif-elif-else tree (matches original logic)
@@ -149,11 +145,10 @@ class BatteryManagementSystem:
             # Case 1: Discharge battery
             discharge_amount = self.strategy.calculate_discharge_amount(context)
             result = self.battery.execute(
-                discharge_kwh=discharge_amount,
-                dt_h=self.driver.resolution
+                discharge_kwh=discharge_amount, dt_h=self.driver.resolution
             )
             # Export net surplus only (renew + discharge minus local demand)
-            export_amount = max(0.0, renew + result['net_discharge'] - abs(demand))
+            export_amount = max(0.0, renew + result["net_discharge"] - abs(demand))
             if export_amount > 0:
                 self.export_flags[index] = True
 
@@ -161,8 +156,7 @@ class BatteryManagementSystem:
             # Case 2: Charge battery
             charge_amount = self.strategy.calculate_charge_amount(context)
             result = self.battery.execute(
-                charge_kwh=charge_amount,
-                dt_h=self.driver.resolution
+                charge_kwh=charge_amount, dt_h=self.driver.resolution
             )
             remaining_renew = renew - charge_amount
             # Only export leftover surplus if profitable (price > 0 and control permits)
@@ -186,12 +180,12 @@ class BatteryManagementSystem:
 
         # Calculate residual demand (unmet demand)
         # demand can be negative (convention: consumption is negative)
-        residual_kwh = max(0.0, abs(demand) - renew - result['net_discharge'])
+        residual_kwh = max(0.0, abs(demand) - renew - result["net_discharge"])
 
         return {
             **result,
-            'export_kwh': export_amount,
-            'residual_kwh': residual_kwh,
-            'price': price,
-            'avg_price': avg_price
+            "export_kwh": export_amount,
+            "residual_kwh": residual_kwh,
+            "price": price,
+            "avg_price": avg_price,
         }

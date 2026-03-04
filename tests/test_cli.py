@@ -5,24 +5,24 @@ Covers:
   create_parser, resolve_data_path, load_config_file,
   resolve_capacity_power, apply_config (all branches)
 """
+
 import argparse
 import json
-import os
-import tempfile
+
 import pytest
 
 from smard_utils.utils.cli import (
+    apply_config,
     create_parser,
-    resolve_data_path,
     load_config_file,
     resolve_capacity_power,
-    apply_config,
+    resolve_data_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # create_parser
 # ---------------------------------------------------------------------------
+
 
 class TestCreateParser:
 
@@ -64,8 +64,9 @@ class TestCreateParser:
 
     def test_capacity_and_power(self):
         parser = create_parser("testprog", "desc", "dynamic_discharge")
-        args = parser.parse_args(["--capacity", "1", "5", "10",
-                                   "--power", "0.5", "2.5", "5"])
+        args = parser.parse_args(
+            ["--capacity", "1", "5", "10", "--power", "0.5", "2.5", "5"]
+        )
         assert args.capacity == [1.0, 5.0, 10.0]
         assert args.power == [0.5, 2.5, 5.0]
 
@@ -83,6 +84,7 @@ class TestCreateParser:
 # ---------------------------------------------------------------------------
 # resolve_data_path
 # ---------------------------------------------------------------------------
+
 
 class TestResolveDataPath:
 
@@ -111,6 +113,7 @@ class TestResolveDataPath:
 # ---------------------------------------------------------------------------
 # load_config_file
 # ---------------------------------------------------------------------------
+
 
 class TestLoadConfigFile:
 
@@ -143,6 +146,7 @@ class TestLoadConfigFile:
 # ---------------------------------------------------------------------------
 # resolve_capacity_power
 # ---------------------------------------------------------------------------
+
 
 class TestResolveCapacityPower:
 
@@ -183,6 +187,7 @@ class TestResolveCapacityPower:
 # ---------------------------------------------------------------------------
 # apply_config
 # ---------------------------------------------------------------------------
+
 
 class TestApplyConfig:
 

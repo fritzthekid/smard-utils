@@ -13,9 +13,13 @@ STRATEGIES = ["price_threshold", "dynamic_discharge", "day_ahead"]
 root_dir = f"{os.path.abspath(os.path.dirname(__file__))}/../.."
 
 
-def create_parser(prog: str, description: str, default_strategy: str,
-                  default_region: str = "de",
-                  extra_strategies: list = None) -> argparse.ArgumentParser:
+def create_parser(
+    prog: str,
+    description: str,
+    default_strategy: str,
+    default_region: str = "de",
+    extra_strategies: list = None,
+) -> argparse.ArgumentParser:
     """
     Create argument parser with common options.
 
@@ -46,41 +50,43 @@ examples:
   {prog} --strategy day_ahead
   {prog} --region lu --data path/to/smard_data.csv
   {prog} -s day_ahead -r de
-""")
+""",
+    )
 
     strategies = STRATEGIES + (extra_strategies or [])
     parser.add_argument(
-        "-s", "--strategy",
+        "-s",
+        "--strategy",
         choices=strategies,
         default=default_strategy,
-        help=f"BMS strategy (default: {default_strategy})"
+        help=f"BMS strategy (default: {default_strategy})",
     )
 
     parser.add_argument(
-        "-r", "--region",
+        "-r",
+        "--region",
         default=default_region,
-        help=f"Region code, e.g. de, lu (default: {default_region})"
+        help=f"Region code, e.g. de, lu (default: {default_region})",
     )
 
     parser.add_argument(
-        "-d", "--data",
+        "-d",
+        "--data",
         default=None,
         metavar="PATH",
-        help="Path to SMARD CSV data file (default: auto-detect from region)"
+        help="Path to SMARD CSV data file (default: auto-detect from region)",
     )
 
     parser.add_argument(
-        "-y", "--year",
-        type=int,
-        default=None,
-        help="Override year for price data"
+        "-y", "--year", type=int, default=None, help="Override year for price data"
     )
 
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         default=None,
         metavar="FILE",
-        help="Path to JSON config file (default: auto-detect basic_data_set.conf in cwd)"
+        help="Path to JSON config file (default: auto-detect basic_data_set.conf in cwd)",
     )
 
     parser.add_argument(
@@ -89,7 +95,7 @@ examples:
         type=float,
         default=None,
         metavar="MWh",
-        help="Battery capacity list in MWh, space-separated (e.g. --capacity 1 5 10 20)"
+        help="Battery capacity list in MWh, space-separated (e.g. --capacity 1 5 10 20)",
     )
 
     parser.add_argument(
@@ -98,13 +104,15 @@ examples:
         type=float,
         default=None,
         metavar="MW",
-        help="Battery power list in MW, space-separated (e.g. --power 0.5 2.5 5 10)"
+        help="Battery power list in MW, space-separated (e.g. --power 0.5 2.5 5 10)",
     )
 
     return parser
 
 
-def resolve_data_path(args, pattern="quarterly/smard_data_{region}/smard_2024_complete.csv"):
+def resolve_data_path(
+    args, pattern="quarterly/smard_data_{region}/smard_2024_complete.csv"
+):
     """
     Resolve data file path from CLI arguments.
 
@@ -178,9 +186,9 @@ def apply_config(basic_data_set: dict, args) -> dict:
     Returns:
         Updated basic_data_set
     """
-    config_path = getattr(args, 'config', None)
-    if config_path is None and os.path.exists('basic_data_set.conf'):
-        config_path = 'basic_data_set.conf'
+    config_path = getattr(args, "config", None)
+    if config_path is None and os.path.exists("basic_data_set.conf"):
+        config_path = "basic_data_set.conf"
 
     if config_path:
         if not os.path.exists(config_path):

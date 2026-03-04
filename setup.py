@@ -1,7 +1,9 @@
-from setuptools import setup, find_packages
 import os
-from setuptools.command.test import test as TestCommand
 import sys
+
+from setuptools import find_packages, setup
+from setuptools.command.test import test as TestCommand
+
 
 # Read the version from __init__.py
 def get_version():
@@ -12,6 +14,7 @@ def get_version():
                 delim = '"' if '"' in line else "'"
                 return line.split(delim)[1]
     raise RuntimeError("Unable to find version string.")
+
 
 class PyTest(TestCommand):
     user_options = []
@@ -26,8 +29,10 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import pytest
+
         errno = pytest.main(self.test_args)
         sys.exit(errno)
+
 
 setup(
     name="smard-utils",
@@ -39,7 +44,7 @@ setup(
         "matplotlib",
         "seaborn",
     ],
-    tests_require=["pytest","pytest-cov"],
+    tests_require=["pytest", "pytest-cov"],
     cmdclass={"test": PyTest},
     entry_points={
         "console_scripts": [

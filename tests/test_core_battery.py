@@ -3,6 +3,7 @@ Tests for core/battery.py - Physical battery model.
 """
 
 import pytest
+
 from smard_utils.core.battery import Battery
 
 
@@ -48,10 +49,10 @@ class TestBattery:
         result = battery.execute(charge_kwh=100, dt_h=1.0)
 
         # Should have charged (with losses)
-        assert result['storage_kwh'] > 400
-        assert result['stored_kwh'] > 0
-        assert result['net_discharge'] == 0
-        assert result['loss_kwh'] > 0  # I²R losses
+        assert result["storage_kwh"] > 400
+        assert result["stored_kwh"] > 0
+        assert result["net_discharge"] == 0
+        assert result["loss_kwh"] > 0  # I²R losses
 
     def test_battery_discharge(self):
         """Test battery discharging."""
@@ -61,10 +62,10 @@ class TestBattery:
         result = battery.execute(discharge_kwh=100, dt_h=1.0)
 
         # Should have discharged (with losses)
-        assert result['storage_kwh'] < 600
-        assert result['net_discharge'] > 0
-        assert result['stored_kwh'] == 0
-        assert result['loss_kwh'] > 0  # I²R losses
+        assert result["storage_kwh"] < 600
+        assert result["net_discharge"] > 0
+        assert result["stored_kwh"] == 0
+        assert result["loss_kwh"] > 0  # I²R losses
 
     def test_battery_self_discharge(self):
         """Test battery self-discharge over time."""
@@ -76,8 +77,8 @@ class TestBattery:
         result = battery.execute(dt_h=1.0)
 
         # Should have self-discharged
-        assert result['storage_kwh'] < 500
-        assert result['storage_kwh'] == pytest.approx(499.5, rel=1e-3)
+        assert result["storage_kwh"] < 500
+        assert result["storage_kwh"] == pytest.approx(499.5, rel=1e-3)
 
     def test_battery_soc_limits(self):
         """Test battery respects SOC limits."""
@@ -89,7 +90,7 @@ class TestBattery:
         result = battery.execute(discharge_kwh=200, dt_h=1.0)
 
         # Should not go below min_soc
-        assert result['storage_kwh'] >= 100  # 10% of 1000
+        assert result["storage_kwh"] >= 100  # 10% of 1000
 
     def test_battery_power_limit(self):
         """Test battery respects power limits."""
@@ -101,7 +102,7 @@ class TestBattery:
 
         # Should be limited by power (100 kW * 1h = 100 kWh)
         # Plus losses, so net discharge should be less than 100
-        assert result['net_discharge'] < 100
+        assert result["net_discharge"] < 100
 
     def test_battery_energy_conservation(self):
         """Test energy conservation (charge + losses = input)."""
@@ -113,8 +114,8 @@ class TestBattery:
 
         # Energy stored + losses should approximately equal input
         # (accounting for efficiency and I²R losses)
-        stored = result['storage_kwh'] - initial_storage
-        total_accounted = stored + result['loss_kwh']
+        stored = result["storage_kwh"] - initial_storage
+        total_accounted = stored + result["loss_kwh"]
 
         # Should be less than input due to efficiency
         assert total_accounted < charge_amount

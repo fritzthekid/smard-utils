@@ -7,8 +7,9 @@ path — it receives an injectable PriceProvider instead.
 """
 
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 class PriceProvider:
@@ -66,16 +67,15 @@ class PriceProvider:
         driver._data["price_per_kwh"] = price
         driver._data["avrgprice"] = price
 
-    def _apply_spot_price(self, driver, costs_file: str,
-                          marketing_costs: float, year: int) -> None:
+    def _apply_spot_price(
+        self, driver, costs_file: str, marketing_costs: float, year: int
+    ) -> None:
         costs = pd.read_csv(costs_file)
         costs["price"] /= 100  # ct/kWh → €/kWh
 
         total_average = costs["price"].mean()
         costs["avrgprice"] = (
-            costs["price"]
-            .rolling(window=25, center=True, min_periods=1)
-            .mean()
+            costs["price"].rolling(window=25, center=True, min_periods=1).mean()
         )
         costs.fillna({"avrgprice": total_average}, inplace=True)
 
@@ -88,9 +88,9 @@ class PriceProvider:
             )
 
         start_time = costs.index[0]
-        hours_diff = (
-            (driver.data.index - start_time).total_seconds() / 3600
-        ).astype(int)
+        hours_diff = ((driver.data.index - start_time).total_seconds() / 3600).astype(
+            int
+        )
         hours_diff = np.clip(hours_diff, 0, len(costs) - 1)
 
         driver._data["price_per_kwh"] = (

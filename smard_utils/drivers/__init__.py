@@ -9,8 +9,8 @@ Drivers load and prepare time-series data for battery simulations:
 """
 
 from .biogas_driver import BiogasDriver
-from .solar_driver import SolarDriver
-from .senec_driver import SenecDriver
 from .community_driver import CommunityDriver
+from .senec_driver import SenecDriver
+from .solar_driver import SolarDriver
 
-__all__ = ['BiogasDriver', 'SolarDriver', 'SenecDriver', 'CommunityDriver']
+__all__ = ["BiogasDriver", "SolarDriver", "SenecDriver", "CommunityDriver"]

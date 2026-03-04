@@ -5,10 +5,10 @@ Central mapping from strategy name → class.  Adding a new strategy only
 requires registering it here — no application class needs to change (O1, O2).
 """
 
-from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
-from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
-from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
 from smard_utils.bms_strategies.autarky import AutoarkyStrategy
+from smard_utils.bms_strategies.day_ahead import DayAheadStrategy
+from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
+from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
 
 STRATEGY_REGISTRY: dict = {
     "price_threshold": PriceThresholdStrategy,

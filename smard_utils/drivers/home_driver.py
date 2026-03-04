@@ -9,6 +9,7 @@ Column convention: demand > 0  (household consumption)
 """
 
 import pandas as pd
+
 from smard_utils.core.driver import EnergyDriver
 
 
@@ -31,20 +32,20 @@ class HomeDriver(EnergyDriver):
         Returns:
             DataFrame with my_renew and my_demand columns
         """
-        df = pd.read_csv(csv_file_path, sep=';', decimal=',')
+        df = pd.read_csv(csv_file_path, sep=";", decimal=",")
 
         # Build datetime index
-        df['DateTime'] = pd.to_datetime(
-            df['Datum'] + ' ' + df['Uhrzeit'], dayfirst=True, format='mixed'
+        df["DateTime"] = pd.to_datetime(
+            df["Datum"] + " " + df["Uhrzeit"], dayfirst=True, format="mixed"
         )
-        df = df.set_index('DateTime')
+        df = df.set_index("DateTime")
 
         # Locate solar and demand columns
         solar_col = demand_col = None
         for col in df.columns:
-            if 'Photovoltaik' in col:
+            if "Photovoltaik" in col:
                 solar_col = col
-            elif 'Gesamtverbrauch' in col or 'Netzlast' in col:
+            elif "Gesamtverbrauch" in col or "Netzlast" in col:
                 demand_col = col
 
         if solar_col is None:
@@ -52,20 +53,20 @@ class HomeDriver(EnergyDriver):
         if demand_col is None:
             raise ValueError("Column 'Gesamtverbrauch'/'Netzlast' not found in CSV")
 
-        solar = pd.to_numeric(df[solar_col], errors='coerce').fillna(0).clip(lower=0)
-        demand = pd.to_numeric(df[demand_col], errors='coerce').fillna(0).clip(lower=0)
+        solar = pd.to_numeric(df[solar_col], errors="coerce").fillna(0).clip(lower=0)
+        demand = pd.to_numeric(df[demand_col], errors="coerce").fillna(0).clip(lower=0)
 
         self.resolution = ((df.index[1] - df.index[0]).seconds) / 3600
 
         result = pd.DataFrame(index=df.index)
-        result['my_renew'] = solar.values   # kWh per period, positive
-        result['my_demand'] = demand.values  # kWh per period, positive (community sign)
+        result["my_renew"] = solar.values  # kWh per period, positive
+        result["my_demand"] = demand.values  # kWh per period, positive (community sign)
 
         # Spot-price columns not used by AutoarkyStrategy, but the BMS framework
         # requires them to be present so analytics can access them if needed.
-        fix_price = self.basic_data_set.get('fix_price', 0.28)
-        result['price_per_kwh'] = fix_price
-        result['avrgprice'] = fix_price
+        fix_price = self.basic_data_set.get("fix_price", 0.28)
+        result["price_per_kwh"] = fix_price
+        result["avrgprice"] = fix_price
 
         self._data = result
         return result

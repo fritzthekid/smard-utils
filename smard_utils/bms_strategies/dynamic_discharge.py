@@ -6,6 +6,7 @@ Used by solar systems: discharge intensity based on daily price ranking.
 
 import numpy as np
 import pandas as pd
+
 from smard_utils.core.bms import BMSStrategy
 
 
@@ -60,8 +61,10 @@ class DynamicDischargeStrategy(BMSStrategy):
         # Rolling 24-hour window from current position
         rest_len = min(int(24 / self.dt_h), len(price_per_kwh) - current_index)
 
-        vals = [(price_per_kwh.index[j].hour, price_per_kwh.iloc[j])
-                for j in range(current_index, current_index + rest_len)]
+        vals = [
+            (price_per_kwh.index[j].hour, price_per_kwh.iloc[j])
+            for j in range(current_index, current_index + rest_len)
+        ]
 
         # Deduplicate by hour (keep first occurrence)
         vals_set = []
@@ -85,7 +88,9 @@ class DynamicDischargeStrategy(BMSStrategy):
 
         # Normalize to [-1, 1]
         if max(nvals) - min(nvals) > 0.001:
-            self.price_array = ((nvals - min(nvals)) / (max(nvals) - min(nvals)) * 2) - 1
+            self.price_array = (
+                (nvals - min(nvals)) / (max(nvals) - min(nvals)) * 2
+            ) - 1
         else:
             self.price_array = np.zeros(24)
 
@@ -101,7 +106,9 @@ class DynamicDischargeStrategy(BMSStrategy):
         """
         return self.price_array[timestamp.hour]
 
-    def _saturation_curve(self, x: float, df: float, df_min: float, sub: float) -> float:
+    def _saturation_curve(
+        self, x: float, df: float, df_min: float, sub: float
+    ) -> float:
         """
         Concave saturation curve for discharge amount.
 
@@ -133,12 +140,15 @@ class DynamicDischargeStrategy(BMSStrategy):
         Returns:
             True if should charge
         """
-        df = self._discharging_factor(context['timestamp'])
+        df = self._discharging_factor(context["timestamp"])
         max_soc = self.basic_data_set.get("max_soc", 0.95)
 
-        return (df < 0 and
-                context['current_storage'] <= (max_soc - self.limit_soc_threshold) * context['capacity'] and
-                context['current_storage'] >= self.limit_soc_threshold)
+        return (
+            df < 0
+            and context["current_storage"]
+            <= (max_soc - self.limit_soc_threshold) * context["capacity"]
+            and context["current_storage"] >= self.limit_soc_threshold
+        )
 
     def should_discharge(self, context: dict) -> bool:
         """
@@ -153,20 +163,26 @@ class DynamicDischargeStrategy(BMSStrategy):
             True if should discharge
         """
         # Update price array daily at 13:00
-        timestamp = context['timestamp']
+        timestamp = context["timestamp"]
         current_day = timestamp.date()
-        if (self.last_update_day != current_day and
-            timestamp.hour == 13 and timestamp.minute == 0):
-            self._update_price_array(context['index'])
+        if (
+            self.last_update_day != current_day
+            and timestamp.hour == 13
+            and timestamp.minute == 0
+        ):
+            self._update_price_array(context["index"])
             self.last_update_day = current_day
 
         df = self._discharging_factor(timestamp)
         df_min = 0.7  # Discharge only in top ~30% of daily prices
         min_soc = self.basic_data_set.get("min_soc", 0.05)
 
-        return (df > df_min and
-                context['current_storage'] >= (min_soc + self.limit_soc_threshold) * context['capacity'] and
-                context['current_storage'] >= self.limit_soc_threshold)
+        return (
+            df > df_min
+            and context["current_storage"]
+            >= (min_soc + self.limit_soc_threshold) * context["capacity"]
+            and context["current_storage"] >= self.limit_soc_threshold
+        )
 
     def should_export(self, context: dict) -> bool:
         """
@@ -178,7 +194,7 @@ class DynamicDischargeStrategy(BMSStrategy):
         Returns:
             True if should export excess
         """
-        return context['price'] >= 0 and self.control_exflow > 1
+        return context["price"] >= 0 and self.control_exflow > 1
 
     def calculate_charge_amount(self, context: dict) -> float:
         """
@@ -193,10 +209,10 @@ class DynamicDischargeStrategy(BMSStrategy):
         max_soc = self.basic_data_set.get("max_soc", 0.95)
 
         allowed_energy = min(
-            context['power_limit'] * context['resolution'],
-            (max_soc * context['capacity']) - context['current_storage']
+            context["power_limit"] * context["resolution"],
+            (max_soc * context["capacity"]) - context["current_storage"],
         )
-        surplus = max(0.0, context['renew'] - abs(context.get('demand', 0)))
+        surplus = max(0.0, context["renew"] - abs(context.get("demand", 0)))
         return min(surplus, allowed_energy)
 
     def calculate_discharge_amount(self, context: dict) -> float:
@@ -212,18 +228,19 @@ class DynamicDischargeStrategy(BMSStrategy):
         Returns:
             Energy to discharge (kWh)
         """
-        df = self._discharging_factor(context['timestamp'])
+        df = self._discharging_factor(context["timestamp"])
         min_soc = self.basic_data_set.get("min_soc", 0.05)
 
         # Saturation curve parameters (optimized for >= 20 MWh)
-        df_param = 3      # Curve steepness
-        df_min = 0.7      # Minimum threshold
-        sub = 0.0         # No substitute
+        df_param = 3  # Curve steepness
+        df_min = 0.7  # Minimum threshold
+        sub = 0.0  # No substitute
 
-        efficiency_discharge = self.basic_data_set.get('efficiency_discharge', 0.96)
+        efficiency_discharge = self.basic_data_set.get("efficiency_discharge", 0.96)
         allowed_energy = min(
-            context['power_limit'] * context['resolution'],
-            (context['current_storage'] - min_soc * context['capacity']) * efficiency_discharge
+            context["power_limit"] * context["resolution"],
+            (context["current_storage"] - min_soc * context["capacity"])
+            * efficiency_discharge,
         )
 
         # Apply saturation curve to modulate discharge
@@ -234,9 +251,9 @@ class DynamicDischargeStrategy(BMSStrategy):
         # - Surplus hour (renew >= demand): no discharge needed, return 0.
         # - Deficit hour (renew < demand): cap discharge at the actual deficit.
         # For solar/biogas (demand < 0): guard is False, discharge normally.
-        demand = context.get('demand', 0)
+        demand = context.get("demand", 0)
         if demand > 0:
-            net_deficit = demand - context['renew']
+            net_deficit = demand - context["renew"]
             if net_deficit <= 0:
                 return 0.0  # Surplus hour: battery not needed
             result = min(result, net_deficit)

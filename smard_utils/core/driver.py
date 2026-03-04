@@ -5,6 +5,7 @@ Provides abstract interface for loading and preparing time-series energy data.
 """
 
 from abc import ABC, abstractmethod
+
 import pandas as pd
 
 
@@ -40,7 +41,6 @@ class EnergyDriver(ABC):
         Returns:
             Prepared DataFrame with my_renew and my_demand columns
         """
-        pass
 
     @property
     def data(self) -> pd.DataFrame:
@@ -60,8 +60,8 @@ class EnergyDriver(ABC):
             Tuple of (renew, demand) in kWh
         """
         return (
-            float(self._data['my_renew'].iloc[index]),
-            float(self._data['my_demand'].iloc[index])
+            float(self._data["my_renew"].iloc[index]),
+            float(self._data["my_demand"].iloc[index]),
         )
 
     def __len__(self) -> int:

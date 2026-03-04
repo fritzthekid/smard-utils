@@ -2,12 +2,14 @@
 Tests for BMS strategies - PriceThresholdStrategy and DynamicDischargeStrategy.
 """
 
-import pytest
-import pandas as pd
+from datetime import datetime
+
 import numpy as np
-from datetime import datetime, timedelta
-from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
+import pandas as pd
+import pytest
+
 from smard_utils.bms_strategies.dynamic_discharge import DynamicDischargeStrategy
+from smard_utils.bms_strategies.price_threshold import PriceThresholdStrategy
 
 
 class TestPriceThresholdStrategy:
@@ -15,11 +17,9 @@ class TestPriceThresholdStrategy:
 
     def test_strategy_initialization(self):
         """Test PriceThresholdStrategy initializes correctly."""
-        strategy = PriceThresholdStrategy({
-            "load_threshold": 1.1,
-            "load_threshold_high": 1.3,
-            "export_threshold": 0.9
-        })
+        strategy = PriceThresholdStrategy(
+            {"load_threshold": 1.1, "load_threshold_high": 1.3, "export_threshold": 0.9}
+        )
 
         assert strategy.load_threshold == 1.1
         assert strategy.load_threshold_high == 1.3
@@ -38,10 +38,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"load_threshold": 1.0})
 
         context = {
-            'price': 0.08,
-            'avg_price': 0.10,
-            'current_storage': 500,
-            'capacity': 1000
+            "price": 0.08,
+            "avg_price": 0.10,
+            "current_storage": 500,
+            "capacity": 1000,
         }
 
         assert strategy.should_charge(context) == True
@@ -51,10 +51,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"load_threshold": 1.0})
 
         context = {
-            'price': 0.12,
-            'avg_price': 0.10,
-            'current_storage': 500,
-            'capacity': 1000
+            "price": 0.12,
+            "avg_price": 0.10,
+            "current_storage": 500,
+            "capacity": 1000,
         }
 
         assert strategy.should_charge(context) == False
@@ -64,10 +64,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"load_threshold": 1.0})
 
         context = {
-            'price': 0.12,
-            'avg_price': 0.10,
-            'current_storage': 500,
-            'capacity': 1000
+            "price": 0.12,
+            "avg_price": 0.10,
+            "current_storage": 500,
+            "capacity": 1000,
         }
 
         assert strategy.should_discharge(context) == True
@@ -77,10 +77,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"load_threshold": 1.0})
 
         context = {
-            'price': 0.08,
-            'avg_price': 0.10,
-            'current_storage': 500,
-            'capacity': 1000
+            "price": 0.08,
+            "avg_price": 0.10,
+            "current_storage": 500,
+            "capacity": 1000,
         }
 
         assert strategy.should_discharge(context) == False
@@ -89,10 +89,7 @@ class TestPriceThresholdStrategy:
         """Test BioBat never exports except when discharging."""
         strategy = PriceThresholdStrategy({})
 
-        context = {
-            'price': 0.15,
-            'avg_price': 0.10
-        }
+        context = {"price": 0.15, "avg_price": 0.10}
 
         # BioBat only exports when discharging (case 1)
         assert strategy.should_export(context) == False
@@ -102,11 +99,11 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 1000,
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 200,
-            'capacity': 1000
+            "renew": 1000,
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 200,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -119,11 +116,11 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 1000,
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 900,  # Near max
-            'capacity': 1000
+            "renew": 1000,
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 900,  # Near max
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -136,11 +133,11 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 100,  # Only 100 kWh available
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 200,
-            'capacity': 1000
+            "renew": 100,  # Only 100 kWh available
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 200,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -153,10 +150,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"min_soc": 0.05})
 
         context = {
-            'power_limit': 300,
-            'resolution': 1.0,
-            'current_storage': 800,
-            'capacity': 1000
+            "power_limit": 300,
+            "resolution": 1.0,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         discharge = strategy.calculate_discharge_amount(context)
@@ -169,10 +166,10 @@ class TestPriceThresholdStrategy:
         strategy = PriceThresholdStrategy({"min_soc": 0.05})
 
         context = {
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 100,  # Near min
-            'capacity': 1000
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 100,  # Near min
+            "capacity": 1000,
         }
 
         discharge = strategy.calculate_discharge_amount(context)
@@ -186,10 +183,9 @@ class TestDynamicDischargeStrategy:
 
     def test_strategy_initialization(self):
         """Test DynamicDischargeStrategy initializes correctly."""
-        strategy = DynamicDischargeStrategy({
-            "limit_soc_threshold": 0.1,
-            "control_exflow": 3
-        })
+        strategy = DynamicDischargeStrategy(
+            {"limit_soc_threshold": 0.1, "control_exflow": 3}
+        )
 
         assert strategy.limit_soc_threshold == 0.1
         assert strategy.control_exflow == 3
@@ -206,10 +202,8 @@ class TestDynamicDischargeStrategy:
         """Test price array setup with data."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01', periods=24, freq='h')
-        data = pd.DataFrame({
-            'price_per_kwh': np.linspace(0.05, 0.20, 24)
-        }, index=dates)
+        dates = pd.date_range("2024-01-01", periods=24, freq="h")
+        data = pd.DataFrame({"price_per_kwh": np.linspace(0.05, 0.20, 24)}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
 
@@ -221,7 +215,7 @@ class TestDynamicDischargeStrategy:
         strategy = DynamicDischargeStrategy({})
 
         # Create price data with clear pattern: low at night, high at day
-        dates = pd.date_range('2024-01-01', periods=48, freq='h')
+        dates = pd.date_range("2024-01-01", periods=48, freq="h")
         prices = []
         for i in range(48):
             hour = i % 24
@@ -230,7 +224,7 @@ class TestDynamicDischargeStrategy:
             else:  # Night hours cheap
                 prices.append(0.08)
 
-        data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
+        data = pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
@@ -248,8 +242,8 @@ class TestDynamicDischargeStrategy:
         """Test discharge factor retrieval."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
-        data = pd.DataFrame({'price_per_kwh': np.linspace(0.05, 0.20, 24)}, index=dates)
+        dates = pd.date_range("2024-01-01 00:00", periods=24, freq="h")
+        data = pd.DataFrame({"price_per_kwh": np.linspace(0.05, 0.20, 24)}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
@@ -290,18 +284,18 @@ class TestDynamicDischargeStrategy:
         """Test charging when discharge factor is negative."""
         strategy = DynamicDischargeStrategy({"max_soc": 0.95})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
+        dates = pd.date_range("2024-01-01 00:00", periods=24, freq="h")
         # Night hours cheap -> negative factor
         prices = [0.08] * 12 + [0.15] * 12
-        data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
+        data = pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
 
         context = {
-            'timestamp': datetime(2024, 1, 1, 2, 0),  # Night hour
-            'current_storage': 200,
-            'capacity': 1000
+            "timestamp": datetime(2024, 1, 1, 2, 0),  # Night hour
+            "current_storage": 200,
+            "capacity": 1000,
         }
 
         # Should charge at night (cheap prices = negative factor)
@@ -311,24 +305,24 @@ class TestDynamicDischargeStrategy:
         """Test discharging when discharge factor is high."""
         strategy = DynamicDischargeStrategy({"min_soc": 0.05})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
+        dates = pd.date_range("2024-01-01 00:00", periods=24, freq="h")
         # Day hours expensive -> positive factor
         prices = [0.08] * 12 + [0.20] * 12
-        data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
+        data = pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
         strategy.last_update_day = datetime(2024, 1, 1).date()
 
         context = {
-            'timestamp': datetime(2024, 1, 1, 18, 0),  # Expensive hour
-            'index': 18,
-            'current_storage': 800,
-            'capacity': 1000
+            "timestamp": datetime(2024, 1, 1, 18, 0),  # Expensive hour
+            "index": 18,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         # Should discharge during expensive hours (high factor)
-        df = strategy._discharging_factor(context['timestamp'])
+        df = strategy._discharging_factor(context["timestamp"])
         if df > 0.7:  # Only if factor exceeds threshold
             assert strategy.should_discharge(context) == True
 
@@ -336,17 +330,17 @@ class TestDynamicDischargeStrategy:
         """Test exporting when price is positive and control permits."""
         strategy = DynamicDischargeStrategy({"control_exflow": 3})
 
-        context = {'price': 0.15}
+        context = {"price": 0.15}
         assert strategy.should_export(context) == True
 
-        context = {'price': -0.01}
+        context = {"price": -0.01}
         assert strategy.should_export(context) == False
 
     def test_should_export_control_disabled(self):
         """Test no export when control is disabled."""
         strategy = DynamicDischargeStrategy({"control_exflow": 1})
 
-        context = {'price': 0.15}
+        context = {"price": 0.15}
         assert strategy.should_export(context) == False
 
     def test_calculate_charge_amount(self):
@@ -354,11 +348,11 @@ class TestDynamicDischargeStrategy:
         strategy = DynamicDischargeStrategy({"max_soc": 0.95})
 
         context = {
-            'renew': 600,
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 300,
-            'capacity': 1000
+            "renew": 600,
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 300,
+            "capacity": 1000,
         }
 
         charge = strategy.calculate_charge_amount(context)
@@ -370,26 +364,26 @@ class TestDynamicDischargeStrategy:
         """Test discharge amount uses saturation curve."""
         strategy = DynamicDischargeStrategy({"min_soc": 0.05})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
+        dates = pd.date_range("2024-01-01 00:00", periods=24, freq="h")
         prices = [0.08] * 12 + [0.20] * 12
-        data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
+        data = pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
 
         context = {
-            'timestamp': datetime(2024, 1, 1, 18, 0),  # Expensive hour
-            'power_limit': 500,
-            'resolution': 1.0,
-            'current_storage': 800,
-            'capacity': 1000
+            "timestamp": datetime(2024, 1, 1, 18, 0),  # Expensive hour
+            "power_limit": 500,
+            "resolution": 1.0,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         discharge = strategy.calculate_discharge_amount(context)
 
         # Should be modulated by saturation curve
         allowed = min(500, 800 - 50)  # 750 kWh
-        df = strategy._discharging_factor(context['timestamp'])
+        df = strategy._discharging_factor(context["timestamp"])
         factor = strategy._saturation_curve(df, 3, 0.7, 0.0)
         expected = factor * allowed
 
@@ -399,9 +393,9 @@ class TestDynamicDischargeStrategy:
         """Test price array updates daily at 13:00."""
         strategy = DynamicDischargeStrategy({})
 
-        dates = pd.date_range('2024-01-01 00:00', periods=72, freq='h')
+        dates = pd.date_range("2024-01-01 00:00", periods=72, freq="h")
         prices = np.random.uniform(0.08, 0.20, 72)
-        data = pd.DataFrame({'price_per_kwh': prices}, index=dates)
+        data = pd.DataFrame({"price_per_kwh": prices}, index=dates)
 
         strategy.setup_price_array(data, 1.0)
         strategy._update_price_array(0)
@@ -409,10 +403,10 @@ class TestDynamicDischargeStrategy:
 
         # First 13:00 should trigger update
         context1 = {
-            'timestamp': datetime(2024, 1, 2, 13, 0),
-            'index': 37,
-            'current_storage': 800,
-            'capacity': 1000
+            "timestamp": datetime(2024, 1, 2, 13, 0),
+            "index": 37,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         old_array = strategy.price_array.copy()
@@ -423,10 +417,10 @@ class TestDynamicDischargeStrategy:
 
         # Later same day should not update again
         context2 = {
-            'timestamp': datetime(2024, 1, 2, 18, 0),
-            'index': 42,
-            'current_storage': 800,
-            'capacity': 1000
+            "timestamp": datetime(2024, 1, 2, 18, 0),
+            "index": 42,
+            "current_storage": 800,
+            "capacity": 1000,
         }
 
         strategy.should_discharge(context2)

@@ -5,12 +5,16 @@ Based on BatterySolBatModel from battery_model.py with complete physics simulati
 """
 
 
-
 class Battery:
     """Physical battery model with I²R losses, efficiency, and SOC limits."""
 
-    def __init__(self, basic_data_set: dict, capacity_kwh: float = 2000.0,
-                 p_max_kw: float = None, init_storage_kwh: float = None):
+    def __init__(
+        self,
+        basic_data_set: dict,
+        capacity_kwh: float = 2000.0,
+        p_max_kw: float = None,
+        init_storage_kwh: float = None,
+    ):
         """
         Initialize battery with physical parameters.
 
@@ -24,14 +28,14 @@ class Battery:
 
         # Apply defaults for physical parameters
         defaults = {
-            "battery_discharge": 0.0005,      # Self-discharge per hour (0.05%/h)
-            "efficiency_charge": 0.96,        # Charging efficiency
-            "efficiency_discharge": 0.96,     # Discharging efficiency
-            "min_soc": 0.05,                  # Minimum state of charge (5%)
-            "max_soc": 0.95,                  # Maximum state of charge (95%)
-            "max_c_rate": 0.5,                # Maximum C-rate (0.5C = 2h full charge)
-            "r0_ohm": 0.006,                  # Internal resistance (Ω)
-            "u_nom": 800.0,                   # Nominal voltage (V)
+            "battery_discharge": 0.0005,  # Self-discharge per hour (0.05%/h)
+            "efficiency_charge": 0.96,  # Charging efficiency
+            "efficiency_discharge": 0.96,  # Discharging efficiency
+            "min_soc": 0.05,  # Minimum state of charge (5%)
+            "max_soc": 0.95,  # Maximum state of charge (95%)
+            "max_c_rate": 0.5,  # Maximum C-rate (0.5C = 2h full charge)
+            "r0_ohm": 0.006,  # Internal resistance (Ω)
+            "u_nom": 800.0,  # Nominal voltage (V)
         }
 
         for k, v in defaults.items():
@@ -70,11 +74,12 @@ class Battery:
 
         p_w = abs(power_kw) * 1000.0
         i = p_w / self.u_nom  # Current (A)
-        p_loss_w = (i ** 2) * self.r0_ohm  # Power loss (W)
+        p_loss_w = (i**2) * self.r0_ohm  # Power loss (W)
         return (p_loss_w * dt_h) / 1000.0  # Energy loss (kWh)
 
-    def execute(self, charge_kwh: float = 0.0, discharge_kwh: float = 0.0,
-                dt_h: float = 1.0) -> dict:
+    def execute(
+        self, charge_kwh: float = 0.0, discharge_kwh: float = 0.0, dt_h: float = 1.0
+    ) -> dict:
         """
         Execute charge or discharge command.
 
@@ -104,24 +109,26 @@ class Battery:
         elif discharge_kwh > 0:
             # Discharging
             loss = self._calculate_i2r_loss(discharge_kwh / dt_h, dt_h)
-            delivered_energy = max(0.0, (discharge_kwh - loss)) * self.efficiency_discharge
+            delivered_energy = (
+                max(0.0, (discharge_kwh - loss)) * self.efficiency_discharge
+            )
             self.current_storage -= discharge_kwh / self.efficiency_discharge
 
         # Self-discharge
-        self.current_storage *= (1.0 - self.battery_discharge * dt_h)
+        self.current_storage *= 1.0 - self.battery_discharge * dt_h
 
         # Clamp to SOC limits
         self.current_storage = max(
             self.min_soc * self.capacity_kwh,
-            min(self.max_soc * self.capacity_kwh, self.current_storage)
+            min(self.max_soc * self.capacity_kwh, self.current_storage),
         )
 
         record = {
-            'storage_kwh': self.current_storage,
-            'soc': self.soc(),
-            'stored_kwh': stored_energy,
-            'net_discharge': delivered_energy,
-            'loss_kwh': loss
+            "storage_kwh": self.current_storage,
+            "soc": self.soc(),
+            "stored_kwh": stored_energy,
+            "net_discharge": delivered_energy,
+            "loss_kwh": loss,
         }
         self.history.append(record)
         return record
